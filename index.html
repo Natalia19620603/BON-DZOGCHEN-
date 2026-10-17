@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Бон и Дзогчен</title>
+  <meta name="description" content="Справочник терминов, практик и ключевых идей по книгам Тензина Вангьяла Ринпоче">
+  <meta name="theme-color" content="#1f2140">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/favicon-32.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Бон и Дзогчен">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-row">
+      <a class="brand" href="#/">Бон и Дзогчен</a>
+      <button id="theme" class="icon-btn" aria-label="Сменить тему" title="Сменить тему">☾</button>
+    </div>
+    <form id="search-form" class="search" role="search">
+      <input id="q" type="search" placeholder="Поиск: ригпа, тигле, сон…" autocomplete="off" aria-label="Поиск">
+    </form>
+    <nav class="tabs" aria-label="Разделы">
+      <a href="#/terms" data-tab="terms">Термины</a>
+      <a href="#/practices" data-tab="practices">Практики</a>
+      <a href="#/ideas" data-tab="ideas">Идеи</a>
+      <a href="#/quotes" data-tab="quotes">Цитаты</a>
+      <a href="#/books" data-tab="books">Книги</a>
+      <a href="#/saved" data-tab="saved">★</a>
+    </nav>
+  </header>
+  <main id="view" tabindex="-1"><p class="muted">Загрузка…</p></main>
+  <footer class="foot">
+    Краткий справочник по книгам Тензина Вангьяла Ринпоче. Пересказ и короткие цитаты со ссылкой на книгу и главу; полные тексты читайте в самих книгах.
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
