@@ -651,6 +651,19 @@ document.getElementById('font').addEventListener('click', () => {
 
 window.addEventListener('hashchange', route);
 
+// back-to-top button: shown once the page is scrolled more than about one screen
+const $top = document.getElementById('to-top');
+let topTick = false;
+window.addEventListener('scroll', () => {
+  if (topTick) return;
+  topTick = true;
+  requestAnimationFrame(() => {
+    $top.classList.toggle('show', window.scrollY > window.innerHeight * 0.8);
+    topTick = false;
+  });
+}, { passive: true });
+$top.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
 load().then(() => {
   const f = storeGet('filter', null);
   state.filter = state.bookById[f] ? f : null;

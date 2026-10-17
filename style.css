@@ -405,3 +405,15 @@ label.btn { cursor: pointer; }
 [hidden] { display: none !important; }
 .entry .book-tag::before, .tool-tag::before { display: none; }
 .body-fig .lbl { font-size: 11px; fill: var(--muted); stroke: none; }
+
+/* back-to-top button */
+.to-top {
+  position: fixed; right: 16px; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 16px); z-index: 11;
+  width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: var(--accent); color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+  opacity: 0; transform: translateY(12px); pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.to-top.show { opacity: .92; transform: none; pointer-events: auto; }
+.to-top svg { width: 24px; height: 24px; stroke-width: 2.2; }
+@media (min-width: 900px) { .to-top { bottom: 24px; right: 24px; } }
