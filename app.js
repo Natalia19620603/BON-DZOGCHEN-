@@ -8,29 +8,46 @@ const BOOK_SHORT = {
   trum: 'Йога тела, речи и ума',
 };
 
+// Thematic collections: an item belongs to a topic when its name/summary mentions a keyword stem.
+const TOPICS = [
+  { id: 'mind', icon: '◯', title: 'Природа ума и Дзогчен', keys: ['ригпа', 'кунжи', 'природа ума', 'природы ума', 'дзогчен', 'пустот', 'трекчод', 'тхогел', 'созерцан', 'недвойствен', 'изначальн'] },
+  { id: 'calm', icon: '◎', title: 'Шинэ и медитация', keys: ['шинэ', 'шиней', 'шине ', 'пребывание в покое', 'сосредоточ', 'медитац', 'ньямшаг', 'интегрир'] },
+  { id: 'dream', icon: '☾', title: 'Сон и сновидения', keys: ['сновид', 'сон ', 'сна ', 'сне ', 'сном', 'йога сна', 'осознанн', 'засыпан'] },
+  { id: 'energy', icon: '≋', title: 'Каналы, ветры, дыхание', keys: ['цалунг', 'лунг', 'прана', 'праны', 'канал', 'чакр', 'тигле', 'дыхан', 'ветер', 'ветра', 'ветр', 'трулкхор', 'хорло'] },
+  { id: 'elements', icon: '✦', title: 'Пять элементов', keys: ['элемент', 'стихи', 'пространств', 'земл', 'огн', 'огон', 'воздух'] },
+  { id: 'sound', icon: '♪', title: 'Звук, слоги, мантры', keys: ['мантр', 'слог', 'звук', 'речь', 'речи', 'а-ом-хум', 'хунг', 'хум'] },
+  { id: 'death', icon: '☸', title: 'Смерть и бардо', keys: ['бардо', 'смерт', 'умира', 'перерожд'] },
+  { id: 'guru', icon: '♁', title: 'Учитель и преданность', keys: ['гуру', 'учител', 'преданност', 'прибежищ', 'передач', 'линии'] },
+  { id: 'bon', icon: '✺', title: 'Традиция Бон', keys: ['тонпа шенраб', 'бон', 'шанг-шунг', 'шангшунг', 'юнгдрунг', 'олмо', 'бонпо'] },
+];
+
 const state = {
   books: [],
   bookById: {},
   glossary: [],      // merged terms: {key, name, alts, entries:[{book, term}]}
   glossaryByKey: {},
-  practices: [],     // {id, book, p}
+  practices: [],     // {id, book, idx, p}
   ideas: [],         // {id, book, i}
   quotes: [],        // {id, book, q}
   filter: null,      // book id or null
-  saved: loadSaved(),
+  saved: null,
+  linker: null,
 };
 
 const $view = document.getElementById('view');
 const $q = document.getElementById('q');
 
-// ---------- storage helpers ----------
+const ICON_STAR = '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+const ICON_CHEV = '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+
+// ---------- storage ----------
 function storeGet(k, d) {
   try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; }
 }
 function storeSet(k, v) {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ }
 }
-function loadSaved() { return new Set(storeGet('saved', [])); }
+state.saved = new Set(storeGet('saved', []));
 function toggleSaved(id) {
   if (state.saved.has(id)) state.saved.delete(id); else state.saved.add(id);
   storeSet('saved', [...state.saved]);
@@ -46,12 +63,12 @@ function termKey(name) {
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function hl(text, q) {
   const t = esc(text);
   if (!q) return t;
   const words = norm(q).split(' ').filter(w => w.length > 1);
   if (!words.length) return t;
-  // highlight on a normalized copy, map positions back (lengths match: ё→е is 1:1)
   const lower = String(text).toLowerCase().replace(/ё/g, 'е');
   const marks = [];
   for (const w of words) {
@@ -69,8 +86,19 @@ function hl(text, q) {
   return out + esc(text.slice(pos));
 }
 function firstLetter(name) {
-  const c = name.trim()[0] || '#';
-  return c.toUpperCase().replace('Ё', 'Е');
+  return (name.trim()[0] || '#').toUpperCase().replace('Ё', 'Е');
+}
+function cut(s, n) { return s.length > n ? s.slice(0, n).replace(/\s+\S*$/, '') + '…' : s; }
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+function dayIndex(len) {
+  const d = new Date();
+  const n = d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate();
+  return (n * 7919) % len;
 }
 
 // ---------- data ----------
@@ -94,14 +122,13 @@ async function load() {
       (t.alt || []).forEach(a => g.alts.add(a));
       g.entries.push({ book: b.id, term: t });
     }
-    (b.practices || []).forEach((p, i) => state.practices.push({ id: `p:${b.id}:${i}`, book: b.id, p }));
+    (b.practices || []).forEach((p, i) => state.practices.push({ id: `p:${b.id}:${i}`, book: b.id, idx: i, p }));
     (b.ideas || []).forEach((x, i) => state.ideas.push({ id: `i:${b.id}:${i}`, book: b.id, i: x }));
     (b.quotes || []).forEach((q, i) => state.quotes.push({ id: `q:${b.id}:${i}`, book: b.id, q }));
     (b.terms || []).forEach(t => {
       if (t.quote && t.quote.text) state.quotes.push({ id: `tq:${b.id}:${termKey(t.term)}`, book: b.id, q: { ...t.quote, topic: t.term } });
     });
   }
-  // also link alt spellings to the same glossary entry
   for (const g of state.glossary) {
     for (const a of g.alts) {
       const k = termKey(a);
@@ -110,20 +137,52 @@ async function load() {
   }
   const coll = new Intl.Collator('ru');
   state.glossary.sort((a, b) => coll.compare(a.name, b.name));
-  state.practices.sort((a, b) => coll.compare(a.p.name, b.p.name));
+  buildLinker();
+}
+
+// Auto-link glossary terms inside definitions. Allows a short Russian ending so «ригпы», «кунжи» etc. match.
+function buildLinker() {
+  const forms = [];
+  for (const g of state.glossary) {
+    const names = [g.name.replace(/\(.*?\)/g, '').trim(), ...[...g.alts].filter(a => /[а-яё]/i.test(a))];
+    for (const n of names) {
+      const base = n.toLowerCase().replace(/ё/g, 'е');
+      if (base.length < 4 || /[^а-яa-z \-]/.test(base)) continue;
+      const stem = base.length >= 5 && /[аяеиоыьй]$/.test(base) ? base.slice(0, -1) : base;
+      forms.push({ stem, key: g.key });
+    }
+  }
+  forms.sort((a, b) => b.stem.length - a.stem.length);
+  const byStem = new Map(forms.map(f => [f.stem, f.key]));
+  const alt = [...byStem.keys()].map(reEsc).join('|');
+  state.linker = {
+    re: new RegExp(`(^|[^а-яёa-z])(${alt})([а-яё]{0,3})(?=[^а-яёa-z]|$)`, 'gi'),
+    byStem,
+  };
+}
+function linkify(text, selfKey) {
+  const t = esc(text);
+  if (!state.linker) return t;
+  const used = new Set([selfKey]);
+  return t.replace(state.linker.re, (m, pre, word, end) => {
+    const key = state.linker.byStem.get(word.toLowerCase().replace(/ё/g, 'е'));
+    if (!key || used.has(key)) return m;
+    used.add(key);
+    return `${pre}<a class="tlink" href="#/term/${encodeURIComponent(key)}">${word}${end}</a>`;
+  });
 }
 
 // ---------- shared bits ----------
 function chapterTitle(bookId, cid) {
-  const b = state.bookById[bookId];
-  const c = b && b.chapterById[cid];
+  const c = state.bookById[bookId]?.chapterById[cid];
   return c ? c.title : '';
 }
-function refLinks(bookId, chapters) {
+// short: the book is already named on the card, so show chapter titles only
+function refLinks(bookId, chapters, short) {
   const ids = (chapters || []).filter(c => state.bookById[bookId]?.chapterById[c]);
-  if (!ids.length) return `<div class="refs"><a class="ref" href="#/book/${bookId}">${esc(BOOK_SHORT[bookId] || bookId)}</a></div>`;
-  return '<div class="refs">' + ids.map(c =>
-    `<a class="ref" href="#/book/${bookId}/${c}">${esc(BOOK_SHORT[bookId])} · ${esc(chapterTitle(bookId, c))}</a>`
+  if (!ids.length) return short ? '' : `<div class="refs"><a class="ref b-${bookId}" href="#/book/${bookId}">${esc(BOOK_SHORT[bookId])}</a></div>`;
+  return `<div class="refs">${short ? '<span class="refs-label">Главы:</span>' : ''}` + ids.map(c =>
+    `<a class="ref b-${bookId}" href="#/book/${bookId}/${c}">${short ? '' : esc(BOOK_SHORT[bookId]) + ' · '}${esc(chapterTitle(bookId, c))}</a>`
   ).join('') + '</div>';
 }
 function quoteHtml(bookId, q, query) {
@@ -131,40 +190,126 @@ function quoteHtml(bookId, q, query) {
 }
 function starBtn(id) {
   const on = state.saved.has(id);
-  return `<button class="star${on ? ' on' : ''}" data-star="${esc(id)}" aria-label="${on ? 'Убрать из избранного' : 'В избранное'}">${on ? '★' : '☆'}</button>`;
+  return `<button class="star${on ? ' on' : ''}" data-star="${esc(id)}" aria-label="${on ? 'Убрать из избранного' : 'В избранное'}">${ICON_STAR}</button>`;
 }
+function bookTag(id) { return `<span class="book-tag b-${id}">${esc(BOOK_SHORT[id])}</span>`; }
 function bookChips() {
   const all = `<button class="chip${state.filter ? '' : ' on'}" data-filter="">Все книги</button>`;
   return '<div class="chips">' + all + state.books.map(b =>
-    `<button class="chip${state.filter === b.id ? ' on' : ''}" data-filter="${b.id}">${esc(BOOK_SHORT[b.id] || b.title)}</button>`
+    `<button class="chip b-${b.id}${state.filter === b.id ? ' on' : ''}" data-filter="${b.id}"><span class="dot"></span>${esc(BOOK_SHORT[b.id])}</button>`
   ).join('') + '</div>';
 }
 function inFilter(bookId) { return !state.filter || state.filter === bookId; }
+function dotsFor(bookIds) {
+  return `<span class="dots">${[...new Set(bookIds)].map(id => `<i class="b-${id}" title="${esc(BOOK_SHORT[id])}"></i>`).join('')}</span>`;
+}
+function termRow(g, sub) {
+  return `<li><a href="#/term/${encodeURIComponent(g.key)}"><span class="main">${esc(g.name)}${sub ? `<span class="sub">${sub}</span>` : ''}</span>${dotsFor(g.entries.map(e => e.book))}${ICON_CHEV}</a></li>`;
+}
+function practiceHref(x) { return `#/practice/${x.book}/${x.idx}`; }
+function practiceRow(x, showBook) {
+  return `<li><a href="${practiceHref(x)}"><span class="main">${esc(x.p.name)}<span class="sub">${esc(showBook ? BOOK_SHORT[x.book] : cut(x.p.purpose || '', 90))}</span></span>${showBook ? dotsFor([x.book]) : ''}${ICON_CHEV}</a></li>`;
+}
+function ideaCard(x, q) {
+  return `<div class="card book-accent b-${x.book}">
+    ${bookTag(x.book)}
+    <div class="head-row"><h3>${hl(x.i.title, q)}</h3>${starBtn(x.id)}</div>
+    <p>${q ? hl(x.i.summary, q) : linkify(x.i.summary)}</p>
+    ${refLinks(x.book, x.i.chapters, true)}
+  </div>`;
+}
+function quoteCard(x, q) {
+  return `<div class="card">
+    <div class="head-row">${bookTag(x.book)}${starBtn(x.id)}</div>
+    ${quoteHtml(x.book, x.q, q)}
+    ${x.q.topic ? `<span class="muted small">Тема: ${esc(x.q.topic)}</span>` : ''}
+  </div>`;
+}
+function groupByBook(items, render, opts = {}) {
+  return state.books.filter(b => inFilter(b.id)).map(b => {
+    const its = items.filter(x => x.book === b.id);
+    if (!its.length) return '';
+    return `<details class="group b-${b.id}"${opts.open ? ' open' : ''}>
+      <summary>${esc(b.title)}<span class="count">${its.length}</span></summary>
+      ${render(its)}
+    </details>`;
+  }).join('');
+}
+
+// ---------- topics ----------
+function topicMatch(t, ...fields) {
+  const hay = ' ' + norm(fields.flat().filter(Boolean).join(' ')) + ' ';
+  return t.keys.some(k => hay.includes(k));
+}
+function topicItems(t) {
+  return {
+    terms: state.glossary.filter(g => topicMatch(t, g.name, [...g.alts])),
+    practices: state.practices.filter(x => topicMatch(t, x.p.name, x.p.purpose)),
+    ideas: state.ideas.filter(x => topicMatch(t, x.i.title)),
+  };
+}
 
 // ---------- views ----------
 function viewHome() {
-  const nTerms = state.glossary.length;
+  const q = state.quotes[dayIndex(state.quotes.length)];
+  const topicCards = TOPICS.map(t => {
+    const it = topicItems(t);
+    const n = it.terms.length + it.practices.length + it.ideas.length;
+    return `<a class="topic" href="#/topic/${t.id}"><span class="ico">${t.icon}</span><b>${esc(t.title)}</b><span>${n} ${plural(n, 'статья', 'статьи', 'статей')}</span></a>`;
+  }).join('');
   return `
-    <h1>Справочник по учению Бон и Дзогчен</h1>
-    <p class="muted">По книгам Тензина Вангьяла Ринпоче: термины, практики, ключевые идеи и короткие цитаты. У каждой статьи указаны книга и глава.</p>
-    <div class="grid home-links">
-      <a class="card" href="#/terms"><div class="num">${nTerms}</div>терминов</a>
-      <a class="card" href="#/practices"><div class="num">${state.practices.length}</div>практик</a>
-      <a class="card" href="#/ideas"><div class="num">${state.ideas.length}</div>ключевых идей</a>
-      <a class="card" href="#/quotes"><div class="num">${state.quotes.length}</div>цитат</a>
+    <section class="hero">
+      <img src="icons/icon-192.png" alt="">
+      <h1>Бон и Дзогчен</h1>
+      <p>Справочник по книгам Тензина Вангьяла Ринпоче: термины, практики, ключевые идеи и цитаты со ссылкой на книгу и главу.</p>
+    </section>
+    <div class="stats">
+      <a href="#/terms"><b>${state.glossary.length}</b><span>терминов</span></a>
+      <a href="#/practices"><b>${state.practices.length}</b><span>практик</span></a>
+      <a href="#/ideas"><b>${state.ideas.length}</b><span>идей</span></a>
+      <a href="#/quotes"><b>${state.quotes.length}</b><span>цитат</span></a>
     </div>
+    ${q ? `<div class="card daily">
+      <div class="label">Цитата дня</div>
+      ${quoteHtml(q.book, q.q)}
+      <div class="row-btns">
+        <a class="btn" href="#/random/term">Случайный термин</a>
+        <a class="btn" href="#/random/quote">Случайная цитата</a>
+      </div>
+    </div>` : ''}
+    <h2>Темы</h2>
+    <div class="topics">${topicCards}</div>
     <h2>Книги</h2>
-    ${booksList()}
-    <h2>Как установить на телефон</h2>
-    <p><b>iPhone:</b> откройте сайт в Safari, нажмите «Поделиться» и выберите «На экран “Домой”».<br>
-    <b>Android:</b> откройте сайт в Chrome, нажмите ⋮ и выберите «Установить приложение» или «Добавить на главный экран».<br>
-    После первого открытия справочник работает и без интернета.</p>`;
+    ${bookCards()}
+    <h2>Установить на телефон</h2>
+    <div class="card small">
+      <p><b>iPhone:</b> откройте сайт в Safari → «Поделиться» → «На экран “Домой”».</p>
+      <p><b>Android:</b> откройте в Chrome → ⋮ → «Установить приложение».</p>
+      <p class="muted">После первого открытия справочник работает без интернета. Кнопка «Aa» вверху меняет размер текста.</p>
+    </div>`;
 }
 
-function booksList() {
-  return '<ul class="list">' + state.books.map(b =>
-    `<li><a href="#/book/${b.id}">${esc(b.title)}<span class="sub">${b.chapters.length} глав · ${(b.terms || []).length} терминов · ${(b.practices || []).length} практик</span></a></li>`
-  ).join('') + '</ul>';
+function bookCards() {
+  return '<div class="books">' + state.books.map(b =>
+    `<a class="book-card b-${b.id}" href="#/book/${b.id}"><span class="spine"></span><span><b>${esc(b.title)}</b>
+      <span>${(b.terms || []).length} терминов · ${(b.practices || []).length} практик · ${(b.ideas || []).length} идей</span></span></a>`
+  ).join('') + '</div>';
+}
+
+function viewTopics() {
+  return `<h1>Темы</h1><p class="lead">Термины, практики и идеи из всех книг, собранные по темам.</p>
+    <div class="topics">${TOPICS.map(t => `<a class="topic" href="#/topic/${t.id}"><span class="ico">${t.icon}</span><b>${esc(t.title)}</b></a>`).join('')}</div>`;
+}
+
+function viewTopic(id) {
+  const t = TOPICS.find(x => x.id === id);
+  if (!t) return notFound();
+  const it = topicItems(t);
+  return `<a class="back" href="#/topics">‹ Все темы</a>
+    <div class="page-head"><h1>${t.icon} ${esc(t.title)}</h1></div>
+    ${it.terms.length ? `<h2>Термины</h2><ul class="list">${it.terms.map(g => termRow(g)).join('')}</ul>` : ''}
+    ${it.practices.length ? `<h2>Практики</h2><ul class="list">${it.practices.map(x => practiceRow(x, true)).join('')}</ul>` : ''}
+    ${it.ideas.length ? `<h2>Идеи</h2>${it.ideas.map(x => ideaCard(x)).join('')}` : ''}`;
 }
 
 function viewTerms() {
@@ -176,14 +321,26 @@ function viewTerms() {
     groups.get(L).push(g);
   }
   const letters = [...groups.keys()];
-  return `<h1>Термины</h1>${bookChips()}
-    <div class="letters">${letters.map(L => `<a href="#L-${encodeURIComponent(L)}" data-jump="L-${esc(L)}">${esc(L)}</a>`).join('')}</div>
+  return `<h1>Термины</h1>
+    <p class="lead">${items.length} ${plural(items.length, 'термин', 'термина', 'терминов')}. Цветные точки показывают, в каких книгах термин объясняется.</p>
+    ${bookChips()}
+    <div class="letters">${letters.map(L => `<a href="#" data-jump="L-${esc(L)}">${esc(L)}</a>`).join('')}</div>
     ${letters.map(L => `<div class="letter-head" id="L-${esc(L)}">${esc(L)}</div><ul class="list">` +
-      groups.get(L).map(g => {
-        const books = [...new Set(g.entries.map(e => e.book))].map(id => BOOK_SHORT[id]).join(' · ');
-        return `<li><a href="#/term/${encodeURIComponent(g.key)}">${esc(g.name)}<span class="sub">${esc(books)}</span></a></li>`;
-      }).join('') + '</ul>').join('')}
-    ${items.length ? '' : '<p class="muted">Нет терминов.</p>'}`;
+      groups.get(L).map(g => termRow(g, esc(cut(g.entries[0].term.definition, 80)))).join('') + '</ul>').join('')}
+    ${items.length ? '' : '<p class="empty">Нет терминов.</p>'}`;
+}
+
+function relatedTerms(g) {
+  // terms explained in the same chapters, ranked by how many chapters they share
+  const chs = new Set(g.entries.flatMap(e => (e.term.chapters || []).map(c => e.book + '/' + c)));
+  const score = [];
+  for (const o of state.glossary) {
+    if (o === g) continue;
+    let s = 0;
+    for (const e of o.entries) for (const c of e.term.chapters || []) if (chs.has(e.book + '/' + c)) s++;
+    if (s) score.push([s, o]);
+  }
+  return score.sort((a, b) => b[0] - a[0]).slice(0, 10).map(x => x[1]);
 }
 
 function viewTerm(key) {
@@ -191,73 +348,72 @@ function viewTerm(key) {
   if (!g) return notFound();
   const id = `t:${g.key}`;
   const alts = [...g.alts].filter(a => termKey(a) !== g.key);
-  return `<a class="back" href="#/terms">← Все термины</a>
-    <div class="head-row"><h1>${esc(g.name)}</h1>${starBtn(id)}</div>
-    ${alts.length ? `<p class="alt">Также: ${alts.map(esc).join(', ')}</p>` : ''}
+  const rel = relatedTerms(g);
+  return `<a class="back" href="#/terms">‹ Все термины</a>
+    <div class="page-head">
+      <div class="head-row"><h1>${esc(g.name)}</h1>${starBtn(id)}</div>
+      ${alts.length ? `<p class="alt">Также: ${alts.map(esc).join(', ')}</p>` : ''}
+    </div>
+    ${g.entries.length > 1 ? `<p class="muted small">Объясняется в ${g.entries.length} книгах.</p>` : ''}
     ${g.entries.map(e => `
-      <div class="card">
-        <span class="book-tag">«${esc(state.bookById[e.book].title)}»</span>
-        <p>${esc(e.term.definition)}</p>
+      <div class="card book-accent b-${e.book}">
+        ${bookTag(e.book)}
+        <p>${linkify(e.term.definition, g.key)}</p>
         ${e.term.quote && e.term.quote.text ? quoteHtml(e.book, e.term.quote) : ''}
-        ${refLinks(e.book, e.term.chapters)}
-      </div>`).join('')}`;
-}
-
-function practiceCard(x, q, full) {
-  const p = x.p;
-  return `<div class="card">
-    <div class="head-row">${full ? `<span class="book-tag">«${esc(BOOK_SHORT[x.book])}»</span>` : `<h3><a href="#/practice/${x.book}/${x.id.split(':')[2]}">${hl(p.name, q)}</a></h3>`}${starBtn(x.id)}</div>
-    ${full ? '' : `<span class="book-tag">«${esc(BOOK_SHORT[x.book])}»</span>`}
-    <p>${hl(p.purpose, q)}</p>
-    ${full && p.steps && p.steps.length ? `<h3>Как выполнять</h3><ol class="steps">${p.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}
-    ${full && p.notes ? `<p class="muted">${esc(p.notes)}</p>` : ''}
-    ${refLinks(x.book, p.chapters)}
-  </div>`;
+        ${refLinks(e.book, e.term.chapters, true)}
+      </div>`).join('')}
+    ${rel.length ? `<h2>Рядом в тех же главах</h2><div class="related">${rel.map(o =>
+      `<a class="chip" href="#/term/${encodeURIComponent(o.key)}">${esc(o.name)}</a>`).join('')}</div>` : ''}`;
 }
 
 function viewPractices() {
   const items = state.practices.filter(x => inFilter(x.book));
-  return `<h1>Практики</h1>${bookChips()}
-    <ul class="list">${items.map(x =>
-      `<li><a href="#/practice/${x.book}/${x.id.split(':')[2]}">${esc(x.p.name)}<span class="sub">${esc(BOOK_SHORT[x.book])}</span></a></li>`).join('')}</ul>`;
+  return `<h1>Практики</h1>
+    <p class="lead">${items.length} ${plural(items.length, 'практика', 'практики', 'практик')}, сгруппированы по книгам. Нажмите на книгу, чтобы раскрыть список.</p>
+    ${bookChips()}
+    ${groupByBook(items, its => `<ul class="list">${its.map(x => practiceRow(x)).join('')}</ul>`, { open: !!state.filter })}`;
 }
 
 function viewPractice(book, idx) {
   const x = state.practices.find(p => p.id === `p:${book}:${idx}`);
   if (!x) return notFound();
-  return `<a class="back" href="#/practices">← Все практики</a><h1>${esc(x.p.name)}</h1>${practiceCard(x, '', true)}
-    <p class="muted small">Это краткий пересказ для памяти. Подробные указания читайте в книге и получайте у учителя.</p>`;
-}
-
-function ideaCard(x, q) {
-  return `<div class="card">
-    <div class="head-row"><h3>${hl(x.i.title, q)}</h3>${starBtn(x.id)}</div>
-    <span class="book-tag">«${esc(BOOK_SHORT[x.book])}»</span>
-    <p>${hl(x.i.summary, q)}</p>
-    ${refLinks(x.book, x.i.chapters)}
-  </div>`;
+  const p = x.p;
+  const same = state.practices.filter(o => o.book === book);
+  const pos = same.indexOf(x);
+  const prev = same[pos - 1], next = same[pos + 1];
+  return `<a class="back" href="#/practices">‹ Все практики</a>
+    <div class="page-head b-${book}">
+      ${bookTag(book)}
+      <div class="head-row"><h1>${esc(p.name)}</h1>${starBtn(x.id)}</div>
+    </div>
+    <p class="purpose">${linkify(p.purpose)}</p>
+    ${p.steps && p.steps.length ? `<div class="card b-${book}"><h3>Как выполнять</h3><ol class="steps">${p.steps.map(s => `<li>${linkify(s)}</li>`).join('')}</ol></div>` : ''}
+    ${p.notes ? `<div class="callout"><b>Важно</b>${linkify(p.notes)}</div>` : ''}
+    ${refLinks(book, p.chapters, true)}
+    <p class="muted small">Это краткий пересказ для памяти. Подробные указания читайте в книге и получайте у учителя.</p>
+    <div class="pager">
+      ${prev ? `<a href="${practiceHref(prev)}"><small>‹ Предыдущая</small>${esc(prev.p.name)}</a>` : '<span></span>'}
+      ${next ? `<a class="next" href="${practiceHref(next)}"><small>Следующая ›</small>${esc(next.p.name)}</a>` : '<span></span>'}
+    </div>`;
 }
 
 function viewIdeas() {
   const items = state.ideas.filter(x => inFilter(x.book));
-  return `<h1>Ключевые идеи</h1>${bookChips()}${items.map(x => ideaCard(x)).join('')}`;
-}
-
-function quoteCard(x, q) {
-  return `<div class="card">
-    <div class="head-row"><span class="book-tag">${esc(x.q.topic || '')}</span>${starBtn(x.id)}</div>
-    ${quoteHtml(x.book, x.q, q)}
-    ${refLinks(x.book, [x.q.chapter])}
-  </div>`;
+  return `<h1>Ключевые идеи</h1>
+    <p class="lead">Главные мысли каждой книги в кратком пересказе.</p>
+    ${bookChips()}
+    ${groupByBook(items, its => `<div class="group-body">${its.map(x => ideaCard(x)).join('')}</div>`, { open: !!state.filter })}`;
 }
 
 function viewQuotes() {
   const items = state.quotes.filter(x => inFilter(x.book));
-  return `<h1>Цитаты</h1>${bookChips()}${items.map(x => quoteCard(x)).join('')}`;
+  return `<div class="head-row"><h1>Цитаты</h1><a class="btn" href="#/random/quote">Случайная</a></div>
+    ${bookChips()}
+    <div class="quote-grid">${items.map(x => quoteCard(x)).join('')}</div>`;
 }
 
 function viewBooks() {
-  return `<h1>Книги</h1>${booksList()}`;
+  return `<h1>Книги</h1>${bookCards()}`;
 }
 
 function countFor(b, cid) {
@@ -268,12 +424,19 @@ function countFor(b, cid) {
 function viewBook(id) {
   const b = state.bookById[id];
   if (!b) return notFound();
-  return `<a class="back" href="#/books">← Все книги</a><h1>${esc(b.title)}</h1>
-    <p>${esc(b.summary)}</p>
+  return `<a class="back" href="#/books">‹ Все книги</a>
+    <div class="book-hero b-${id}"><h1>${esc(b.title)}</h1></div>
+    <p>${linkify(b.summary)}</p>
+    <div class="stats">
+      <a href="#/terms" data-filter-go="${id}"><b>${(b.terms || []).length}</b><span>терминов</span></a>
+      <a href="#/practices" data-filter-go="${id}"><b>${(b.practices || []).length}</b><span>практик</span></a>
+      <a href="#/ideas" data-filter-go="${id}"><b>${(b.ideas || []).length}</b><span>идей</span></a>
+      <a href="#/quotes" data-filter-go="${id}"><b>${state.quotes.filter(q => q.book === id).length}</b><span>цитат</span></a>
+    </div>
     <h2>Главы</h2>
     <ul class="list">${b.chapters.map(c => {
       const n = countFor(b, c.id);
-      return `<li><a href="#/book/${id}/${c.id}">${esc(c.title)}<span class="sub">${n ? n + ' статей' : 'нет статей'}</span></a></li>`;
+      return `<li><a href="#/book/${id}/${c.id}"><span class="main">${esc(c.title)}<span class="sub">${n ? `${n} ${plural(n, 'статья', 'статьи', 'статей')}` : 'нет статей'}</span></span>${ICON_CHEV}</a></li>`;
     }).join('')}</ul>`;
 }
 
@@ -281,17 +444,22 @@ function viewChapter(id, cid) {
   const b = state.bookById[id];
   const c = b && b.chapterById[cid];
   if (!c) return notFound();
-  const terms = (b.terms || []).filter(t => (t.chapters || []).includes(cid));
+  const terms = (b.terms || []).filter(t => (t.chapters || []).includes(cid)).map(t => state.glossaryByKey[termKey(t.term)]).filter(Boolean);
   const pr = state.practices.filter(x => x.book === id && (x.p.chapters || []).includes(cid));
   const ideas = state.ideas.filter(x => x.book === id && (x.i.chapters || []).includes(cid));
   const quotes = state.quotes.filter(x => x.book === id && x.q.chapter === cid);
-  return `<a class="back" href="#/book/${id}">← ${esc(b.title)}</a><h1>${esc(c.title)}</h1>
-    ${terms.length ? `<h2>Термины</h2><ul class="list">${terms.map(t =>
-      `<li><a href="#/term/${encodeURIComponent(termKey(t.term))}">${esc(t.term)}</a></li>`).join('')}</ul>` : ''}
-    ${pr.length ? `<h2>Практики</h2>${pr.map(x => practiceCard(x)).join('')}` : ''}
+  const i = b.chapters.indexOf(c), prev = b.chapters[i - 1], next = b.chapters[i + 1];
+  return `<a class="back" href="#/book/${id}">‹ ${esc(b.title)}</a>
+    <div class="book-hero b-${id}"><h1>${esc(c.title)}</h1></div>
+    ${terms.length ? `<h2>Термины</h2><ul class="list">${terms.map(g => termRow(g)).join('')}</ul>` : ''}
+    ${pr.length ? `<h2>Практики</h2><ul class="list">${pr.map(x => practiceRow(x)).join('')}</ul>` : ''}
     ${ideas.length ? `<h2>Идеи</h2>${ideas.map(x => ideaCard(x)).join('')}` : ''}
     ${quotes.length ? `<h2>Цитаты</h2>${quotes.map(x => quoteCard(x)).join('')}` : ''}
-    ${terms.length + pr.length + ideas.length + quotes.length ? '' : '<p class="muted">По этой главе статей нет.</p>'}`;
+    ${terms.length + pr.length + ideas.length + quotes.length ? '' : '<p class="empty">По этой главе статей нет.</p>'}
+    <div class="pager">
+      ${prev ? `<a href="#/book/${id}/${prev.id}"><small>‹ Предыдущая глава</small>${esc(prev.title)}</a>` : '<span></span>'}
+      ${next ? `<a class="next" href="#/book/${id}/${next.id}"><small>Следующая глава ›</small>${esc(next.title)}</a>` : '<span></span>'}
+    </div>`;
 }
 
 function matches(q, ...fields) {
@@ -303,23 +471,23 @@ function matches(q, ...fields) {
 function viewSearch(q) {
   if (!norm(q)) return viewHome();
   const nq = norm(q);
-  const terms = state.glossary.filter(g =>
-    matches(q, g.name, [...g.alts], g.entries.map(e => e.term.definition)));
-  // put name matches first
-  terms.sort((a, b) => (norm(b.name).includes(nq) ? 1 : 0) - (norm(a.name).includes(nq) ? 1 : 0));
+  const terms = state.glossary.filter(g => matches(q, g.name, [...g.alts], g.entries.map(e => e.term.definition)));
+  const rank = g => (norm(g.name).startsWith(nq) ? 2 : 0) + (norm(g.name).includes(nq) || [...g.alts].some(a => norm(a).includes(nq)) ? 1 : 0);
+  terms.sort((a, b) => rank(b) - rank(a));
   const pr = state.practices.filter(x => matches(q, x.p.name, x.p.purpose, x.p.steps, x.p.notes));
   const ideas = state.ideas.filter(x => matches(q, x.i.title, x.i.summary));
   const quotes = state.quotes.filter(x => matches(q, x.q.text, x.q.topic));
   const total = terms.length + pr.length + ideas.length + quotes.length;
-  return `<h1>Поиск: «${esc(q)}»</h1>
-    <p class="muted">${total ? `Найдено: ${total}` : 'Ничего не найдено. Попробуйте другое написание (например, «шинэ» или «шине»).'}</p>
-    ${terms.length ? `<h2>Термины (${terms.length})</h2><ul class="list">${terms.map(g => {
+  return `<h1>Поиск</h1>
+    <p class="lead">${total ? `По запросу «${esc(q)}» найдено ${total}` : `По запросу «${esc(q)}» ничего не найдено. Попробуйте другое написание, например «шинэ» или «шине».`}</p>
+    ${terms.length ? `<h2>Термины · ${terms.length}</h2><ul class="list">${terms.map(g => {
       const def = g.entries[0].term.definition;
-      return `<li><a href="#/term/${encodeURIComponent(g.key)}">${hl(g.name, q)}<span class="sub">${hl(def.length > 140 ? def.slice(0, 140) + '…' : def, q)}</span></a></li>`;
+      return `<li><a href="#/term/${encodeURIComponent(g.key)}"><span class="main">${hl(g.name, q)}<span class="sub">${hl(cut(def, 110), q)}</span></span>${dotsFor(g.entries.map(e => e.book))}${ICON_CHEV}</a></li>`;
     }).join('')}</ul>` : ''}
-    ${pr.length ? `<h2>Практики (${pr.length})</h2>${pr.map(x => practiceCard(x, q)).join('')}` : ''}
-    ${ideas.length ? `<h2>Идеи (${ideas.length})</h2>${ideas.map(x => ideaCard(x, q)).join('')}` : ''}
-    ${quotes.length ? `<h2>Цитаты (${quotes.length})</h2>${quotes.map(x => quoteCard(x, q)).join('')}` : ''}`;
+    ${pr.length ? `<h2>Практики · ${pr.length}</h2><ul class="list">${pr.map(x =>
+      `<li><a href="${practiceHref(x)}"><span class="main">${hl(x.p.name, q)}<span class="sub">${hl(cut(x.p.purpose || '', 110), q)}</span></span>${dotsFor([x.book])}${ICON_CHEV}</a></li>`).join('')}</ul>` : ''}
+    ${ideas.length ? `<h2>Идеи · ${ideas.length}</h2>${ideas.map(x => ideaCard(x, q)).join('')}` : ''}
+    ${quotes.length ? `<h2>Цитаты · ${quotes.length}</h2>${quotes.map(x => quoteCard(x, q)).join('')}` : ''}`;
 }
 
 function viewSaved() {
@@ -330,10 +498,9 @@ function viewSaved() {
   const quotes = state.quotes.filter(x => ids.has(x.id));
   const total = terms.length + pr.length + ideas.length + quotes.length;
   return `<h1>Избранное</h1>
-    ${total ? '' : '<p class="muted">Здесь появится то, что вы отметите звёздочкой ☆.</p>'}
-    ${terms.length ? `<h2>Термины</h2><ul class="list">${terms.map(g =>
-      `<li><a href="#/term/${encodeURIComponent(g.key)}">${esc(g.name)}</a></li>`).join('')}</ul>` : ''}
-    ${pr.length ? `<h2>Практики</h2>${pr.map(x => practiceCard(x)).join('')}` : ''}
+    ${total ? '' : `<p class="empty">Здесь появится то, что вы отметите звёздочкой.<br>Она есть у каждого термина, практики, идеи и цитаты.</p>`}
+    ${terms.length ? `<h2>Термины</h2><ul class="list">${terms.map(g => termRow(g)).join('')}</ul>` : ''}
+    ${pr.length ? `<h2>Практики</h2><ul class="list">${pr.map(x => practiceRow(x, true)).join('')}</ul>` : ''}
     ${ideas.length ? `<h2>Идеи</h2>${ideas.map(x => ideaCard(x)).join('')}` : ''}
     ${quotes.length ? `<h2>Цитаты</h2>${quotes.map(x => quoteCard(x)).join('')}` : ''}`;
 }
@@ -343,12 +510,30 @@ function notFound() {
 }
 
 // ---------- router ----------
+const TAB_OF = { term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '' };
+
 function route() {
   const hash = location.hash.replace(/^#/, '') || '/';
   const [path, query] = hash.split('?');
   const parts = path.split('/').filter(Boolean).map(decodeURIComponent);
-  const tab = parts[0] === 'term' ? 'terms' : parts[0] === 'practice' ? 'practices' : parts[0] === 'book' ? 'books' : parts[0];
-  document.querySelectorAll('.tabs a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+
+  if (parts[0] === 'random') {
+    if (parts[1] === 'quote') {
+      const x = state.quotes[Math.floor(Math.random() * state.quotes.length)];
+      $view.innerHTML = `<a class="back" href="#/quotes">‹ Все цитаты</a><h1>Случайная цитата</h1>${quoteCard(x)}
+        <div class="row-btns"><button class="btn" data-again>Ещё одну</button></div>`;
+    } else {
+      const g = state.glossary[Math.floor(Math.random() * state.glossary.length)];
+      history.replaceState(null, '', '#/term/' + encodeURIComponent(g.key));
+      return route();
+    }
+    setActive('quotes');
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  const tab = parts[0] === undefined ? 'home' : (parts[0] in TAB_OF ? TAB_OF[parts[0]] : parts[0]);
+  setActive(tab);
 
   let html;
   switch (parts[0]) {
@@ -361,10 +546,12 @@ function route() {
     case 'quotes': html = viewQuotes(); break;
     case 'books': html = viewBooks(); break;
     case 'book': html = parts[2] ? viewChapter(parts[1], parts[2]) : viewBook(parts[1]); break;
+    case 'topics': html = viewTopics(); break;
+    case 'topic': html = viewTopic(parts[1]); break;
     case 'saved': html = viewSaved(); break;
     case 'search': {
       const q = new URLSearchParams(query || '').get('q') || '';
-      if ($q.value !== q) $q.value = q;
+      if ($q.value !== q && document.activeElement !== $q) $q.value = q;
       html = viewSearch(q);
       break;
     }
@@ -374,6 +561,9 @@ function route() {
   $view.innerHTML = html;
   if (parts[0] !== 'search') window.scrollTo(0, 0);
 }
+function setActive(tab) {
+  document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+}
 
 // ---------- events ----------
 let searchTimer;
@@ -382,20 +572,20 @@ $q.addEventListener('input', () => {
   searchTimer = setTimeout(() => {
     const q = $q.value.trim();
     const target = q ? '#/search?q=' + encodeURIComponent(q) : '#/';
-    if (location.hash.startsWith('#/search')) history.replaceState(null, '', target), route();
+    if (location.hash.startsWith('#/search')) { history.replaceState(null, '', target); route(); }
     else location.hash = target;
   }, 200);
 });
 document.getElementById('search-form').addEventListener('submit', e => { e.preventDefault(); $q.blur(); });
 
-$view.addEventListener('click', e => {
+document.addEventListener('click', e => {
   const star = e.target.closest('[data-star]');
   if (star) {
     e.preventDefault();
     toggleSaved(star.dataset.star);
     const on = state.saved.has(star.dataset.star);
     star.classList.toggle('on', on);
-    star.textContent = on ? '★' : '☆';
+    star.setAttribute('aria-label', on ? 'Убрать из избранного' : 'В избранное');
     return;
   }
   const chip = e.target.closest('[data-filter]');
@@ -405,26 +595,45 @@ $view.addEventListener('click', e => {
     route();
     return;
   }
+  const go = e.target.closest('[data-filter-go]');
+  if (go) {
+    state.filter = go.dataset.filterGo;
+    storeSet('filter', state.filter);
+    return; // the link itself navigates
+  }
   const jump = e.target.closest('[data-jump]');
   if (jump) {
     e.preventDefault();
     document.getElementById(jump.dataset.jump)?.scrollIntoView({ behavior: 'smooth' });
+    return;
   }
+  if (e.target.closest('[data-again]')) route();
 });
 
 // theme
-const $theme = document.getElementById('theme');
 function applyTheme(t) {
   if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.querySelector('meta[name="theme-color"]').content = dark ? '#0e0f1a' : '#1f2140';
 }
 applyTheme(storeGet('theme', null));
-$theme.addEventListener('click', () => {
-  const dark = document.documentElement.dataset.theme
-    ? document.documentElement.dataset.theme === 'dark'
-    : matchMedia('(prefers-color-scheme: dark)').matches;
+document.getElementById('theme').addEventListener('click', () => {
+  const cur = document.documentElement.dataset.theme;
+  const dark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   const next = dark ? 'light' : 'dark';
   applyTheme(next);
   storeSet('theme', next);
+});
+
+// font size: 0 → 1 → 2 → 0
+function applySize(n) {
+  if (n) document.documentElement.dataset.size = n; else delete document.documentElement.dataset.size;
+}
+applySize(storeGet('size', 0));
+document.getElementById('font').addEventListener('click', () => {
+  const n = (storeGet('size', 0) + 1) % 3;
+  applySize(n);
+  storeSet('size', n);
 });
 
 window.addEventListener('hashchange', route);
