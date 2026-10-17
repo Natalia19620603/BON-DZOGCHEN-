@@ -277,6 +277,14 @@ function viewHome() {
         <a class="btn" href="#/random/quote">Случайная цитата</a>
       </div>
     </div>` : ''}
+    <h2>Для практики</h2>
+    <div class="tools-row">
+      <a class="tool" href="#/timer"><span class="ico">◎</span><b>Таймер</b></a>
+      <a class="tool night-tool" href="#/night"><span class="ico">☾</span><b>Практика сна</b></a>
+      <a class="tool" href="#/journal"><span class="ico">✎</span><b>Дневник</b></a>
+      <a class="tool" href="#/cards"><span class="ico">❖</span><b>Карточки</b></a>
+      <a class="tool" href="#/charts"><span class="ico">✦</span><b>Схемы</b></a>
+    </div>
     <h2>Темы</h2>
     <div class="topics">${topicCards}</div>
     <h2>Книги</h2>
@@ -363,7 +371,8 @@ function viewTerm(key) {
         ${refLinks(e.book, e.term.chapters, true)}
       </div>`).join('')}
     ${rel.length ? `<h2>Рядом в тех же главах</h2><div class="related">${rel.map(o =>
-      `<a class="chip" href="#/term/${encodeURIComponent(o.key)}">${esc(o.name)}</a>`).join('')}</div>` : ''}`;
+      `<a class="chip" href="#/term/${encodeURIComponent(o.key)}">${esc(o.name)}</a>`).join('')}</div>` : ''}
+    ${noteBox(id)}`;
 }
 
 function viewPractices() {
@@ -390,6 +399,7 @@ function viewPractice(book, idx) {
     ${p.steps && p.steps.length ? `<div class="card b-${book}"><h3>Как выполнять</h3><ol class="steps">${p.steps.map(s => `<li>${linkify(s)}</li>`).join('')}</ol></div>` : ''}
     ${p.notes ? `<div class="callout"><b>Важно</b>${linkify(p.notes)}</div>` : ''}
     ${refLinks(book, p.chapters, true)}
+    ${noteBox(x.id)}
     <p class="muted small">Это краткий пересказ для памяти. Подробные указания читайте в книге и получайте у учителя.</p>
     <div class="pager">
       ${prev ? `<a href="${practiceHref(prev)}"><small>‹ Предыдущая</small>${esc(prev.p.name)}</a>` : '<span></span>'}
@@ -496,8 +506,10 @@ function viewSaved() {
   const pr = state.practices.filter(x => ids.has(x.id));
   const ideas = state.ideas.filter(x => ids.has(x.id));
   const quotes = state.quotes.filter(x => ids.has(x.id));
-  const total = terms.length + pr.length + ideas.length + quotes.length;
+  const notes = notesList();
+  const total = terms.length + pr.length + ideas.length + quotes.length + (notes ? 1 : 0);
   return `<h1>Избранное</h1>
+    ${notes}
     ${total ? '' : `<p class="empty">Здесь появится то, что вы отметите звёздочкой.<br>Она есть у каждого термина, практики, идеи и цитаты.</p>`}
     ${terms.length ? `<h2>Термины</h2><ul class="list">${terms.map(g => termRow(g)).join('')}</ul>` : ''}
     ${pr.length ? `<h2>Практики</h2><ul class="list">${pr.map(x => practiceRow(x, true)).join('')}</ul>` : ''}
@@ -510,7 +522,7 @@ function notFound() {
 }
 
 // ---------- router ----------
-const TAB_OF = { term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '' };
+const TAB_OF = { term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
 
 function route() {
   const hash = location.hash.replace(/^#/, '') || '/';
@@ -555,11 +567,12 @@ function route() {
       html = viewSearch(q);
       break;
     }
-    default: html = notFound();
+    default: html = Tools.views[parts[0]] ? Tools.views[parts[0]](parts, query) : notFound();
   }
   if (parts[0] !== 'search' && $q.value) $q.value = '';
   $view.innerHTML = html;
   if (parts[0] !== 'search') window.scrollTo(0, 0);
+  if (Tools.after[parts[0]]) Tools.after[parts[0]](parts);
 }
 function setActive(tab) {
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));

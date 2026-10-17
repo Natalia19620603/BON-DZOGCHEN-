@@ -1,11 +1,13 @@
 // Bump VERSION on every deploy so phones pick up new content.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = 'bon-dzogchen-' + VERSION;
 const ASSETS = [
   './',
   'index.html',
   'style.css',
   'app.js',
+  'tools.js',
+  'data/charts.json',
   'data/all.json',
   'manifest.webmanifest',
   'icons/icon-192.png',
