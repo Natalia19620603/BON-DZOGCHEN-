@@ -655,16 +655,22 @@ function centerGlyphs() {
   }).catch(() => {});
 }
 // syllables mentioned in a practice: by name, or at least two of the five in its description
-function practiceSyllables(p) {
+// syllables named in the title, or at least two of the five mentioned in the text
+function findSyllables(name, text) {
   const has = (txt, s) => [s.ru, ...(s.alt || [])].some(w => new RegExp(`(^|[^А-ЯЁа-яё])${w}([^А-ЯЁа-яё]|$)`).test(txt));
-  const inName = SYLLABLES.filter(s => has(p.name, s));
+  const inName = SYLLABLES.filter(s => has(name, s));
   if (inName.length) return inName;
-  const all = [p.name, p.purpose, ...(p.steps || []), p.notes].filter(Boolean).join(' ');
-  const found = SYLLABLES.filter(s => has(all, s));
+  const found = SYLLABLES.filter(s => has(text, s));
   return found.length >= 2 ? found : [];
 }
+function practiceSyllables(p) {
+  return findSyllables(p.name, [p.name, p.purpose, ...(p.steps || []), p.notes].filter(Boolean).join(' '));
+}
+function termSyllables(g) {
+  return findSyllables(g.name, [g.name, ...g.alts, ...g.entries.map(e => e.term.definition)].join(' '));
+}
 function syllableStrip(p) {
-  const list = practiceSyllables(p);
+  const list = p.entries ? termSyllables(p) : practiceSyllables(p);
   if (!list.length) return '';
   return `<a class="syl-strip" href="#/syllables">
     ${list.map(s => `<span class="syl-mini"><span class="glyph-box">${glyph(s, 44)}</span><small>${esc(s.ru)}</small></span>`).join('')}

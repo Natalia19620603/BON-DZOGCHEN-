@@ -446,7 +446,7 @@ label.btn { cursor: pointer; }
 .syl-page .ref { background: #2c2950; color: #ece8f6; }
 .syl-page .btn { background: rgba(255,255,255,.08); border-color: #3b3666; color: #ece8f6; }
 .syl-strip {
-  display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; margin: 6px 0 14px; padding: 10px 12px;
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; margin: 6px 0 14px; padding: 16px 12px 10px;
   background: linear-gradient(170deg, #15162a, #23213f); border-radius: 14px;
 }
 .syl-strip:hover { text-decoration: none; filter: brightness(1.1); }
