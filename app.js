@@ -369,6 +369,7 @@ function viewTerm(key) {
       <div class="head-row"><h1>${esc(g.name)}</h1>${starBtn(id)}</div>
       ${alts.length ? `<p class="alt">Также: ${alts.map(esc).join(', ')}</p>` : ''}
     </div>
+    ${syllableStrip(g)}
     ${g.entries.length > 1 ? `<p class="muted small">Объясняется в ${g.entries.length} книгах.</p>` : ''}
     ${g.entries.map(e => `
       <div class="card book-accent b-${e.book}">
