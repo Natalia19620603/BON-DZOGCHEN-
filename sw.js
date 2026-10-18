@@ -1,5 +1,5 @@
 // Bump VERSION on every deploy so phones pick up new content.
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'bon-dzogchen-' + VERSION;
 const ASSETS = [
   './',
@@ -8,6 +8,7 @@ const ASSETS = [
   'app.js',
   'tools.js',
   'data/charts.json',
+  'fonts/tibetan-syllables.woff2',
   'data/all.json',
   'manifest.webmanifest',
   'icons/icon-192.png',

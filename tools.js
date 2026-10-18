@@ -574,18 +574,23 @@ function chartTable(key, sec) {
   </section>`;
 }
 function bodyFigure() {
-  // schematic of the three channels and chakras; colours as in «Исцеление формой, энергией и светом», гл. 2–3
+  // schematic of the three channels; colours as in «Исцеление формой, энергией и светом», гл. 2–3,
+  // syllables on the chakras as in «Тибетская йога тела, речи и ума», гл. 7
+  const ys = [22, 92, 142, 196, 244];
   return `<figure class="body-fig">
-    <svg viewBox="0 0 220 320" role="img" aria-label="Схема трёх каналов и чакр">
-      <ellipse cx="110" cy="48" rx="30" ry="34" class="silh"/>
-      <path d="M96 80 L124 80 Q168 92 168 150 L160 240 Q150 300 110 306 Q70 300 60 240 L52 150 Q52 92 96 80 Z" class="silh"/>
-      <line x1="110" y1="18" x2="110" y2="252" stroke="#3a6fd0" stroke-width="7" stroke-linecap="round"/>
-      <path d="M102 62 C94 50 94 34 101 28 M101 28 C95 60 97 80 97 110 L97 236 Q100 248 110 252" stroke="#f4f1e8" stroke-width="4" fill="none" stroke-linecap="round" class="edge"/>
-      <path d="M118 62 C126 50 126 34 119 28 M119 28 C125 60 123 80 123 110 L123 236 Q120 248 110 252" stroke="#d64545" stroke-width="4" fill="none" stroke-linecap="round"/>
-      ${[22, 92, 142, 196, 244].map(y => `<circle cx="110" cy="${y}" r="7.5" class="chakra"/>`).join('')}
-      <text x="70" y="140" class="lbl" text-anchor="end">правый</text><text x="150" y="140" class="lbl">левый</text>
-    </svg>
-    <figcaption class="muted small">Схема: синий центральный канал, белый правый и красный левый (вид спереди, у мужчин; у женщин, по «Исцелению» и «Йоге сна», цвета боковых каналов меняются местами). Кружки обозначают чакры. Подробности ниже.</figcaption>
+    <div class="body-stage"><div class="body-inner">
+      <svg viewBox="0 0 220 320" role="img" aria-label="Схема трёх каналов и пяти чакр со слогами">
+        <ellipse cx="110" cy="48" rx="30" ry="34" class="silh"/>
+        <path d="M96 80 L124 80 Q168 92 168 150 L160 240 Q150 300 110 306 Q70 300 60 240 L52 150 Q52 92 96 80 Z" class="silh"/>
+        <line x1="110" y1="18" x2="110" y2="252" stroke="#3a6fd0" stroke-width="7" stroke-linecap="round" opacity=".85"/>
+        <path d="M102 62 C94 50 94 34 101 28 M101 28 C95 60 97 80 97 110 L97 236 Q100 248 110 252" stroke="#f4f1e8" stroke-width="4" fill="none" stroke-linecap="round" opacity=".85"/>
+        <path d="M118 62 C126 50 126 34 119 28 M119 28 C125 60 123 80 123 110 L123 236 Q120 248 110 252" stroke="#d64545" stroke-width="4" fill="none" stroke-linecap="round" opacity=".9"/>
+        <text x="76" y="290" class="lbl" text-anchor="end">правый</text><text x="144" y="290" class="lbl">левый</text>
+      </svg>
+      ${SYLLABLES.map((sy, i) => `<span class="glyph-box on-body" style="top:${(ys[i] / 320) * 100}%">${glyph(sy, 30)}</span>`).join('')}
+      ${SYLLABLES.map((sy, i) => `<span class="body-tag" style="top:${(ys[i] / 320) * 100}%">${esc(sy.chakra)}</span>`).join('')}
+    </div></div>
+    <figcaption class="muted small">Синий центральный канал, белый правый и красный левый (вид спереди, у мужчин; у женщин, по «Исцелению» и «Йоге сна», цвета боковых каналов меняются местами). На чакрах пять слогов из «Тибетской йоги тела, речи и ума». <a href="#/syllables">О пяти слогах</a></figcaption>
   </figure>`;
 }
 Tools.views.charts = () => `<a class="back" href="#/tools">‹ Практикум</a><h1>Схемы и таблицы</h1><div id="charts-body"><p class="muted">Загрузка…</p></div>`;
@@ -598,6 +603,7 @@ Tools.after.charts = async () => {
     ${c.channels && c.channels.rows.length ? bodyFigure() : ''}
     ${keys.map(k => chartTable(k, c[k])).join('')}
     ${keys.length ? '' : '<p class="empty">Схемы пока не готовы.</p>'}`;
+  centerGlyphs();
 };
 
 // ---------- hub ----------
@@ -611,6 +617,67 @@ Tools.views.tools = () => {
     <a class="tool" href="#/journal"><span class="ico">✎</span><b>Дневник</b><span>${st.dreams} ${plural(st.dreams, 'сон', 'сна', 'снов')} · ${st.minutes} мин практики</span></a>
     <a class="tool" href="#/cards"><span class="ico">❖</span><b>Карточки</b><span>Запоминание терминов</span></a>
     <a class="tool" href="#/charts"><span class="ico">✦</span><b>Схемы и таблицы</b><span>Элементы, каналы, чакры, миры</span></a>
+    <a class="tool syl-tool" href="#/syllables"><span class="ico"><span class="tib" data-glyph style="--c:#7fb0ff;--c2:#2449a8;font-size:22px">ཧཱུྃ</span></span><b>Пять слогов</b><span>А, ОМ, ХУНГ, РАМ, ДЗА</span></a>
     <a class="tool" href="#/quotes"><span class="ico">❝</span><b>Цитаты</b><span>Все цитаты из книг</span></a>
   </div>`;
 };
+
+// ---------- the five warrior syllables (glowing Tibetan letters) ----------
+// Colours and chakras as in «Тибетская йога тела, речи и ума», ч. 2, гл. 7.
+const SYLLABLES = [
+  { id: 'a', tib: 'ཨ', ru: 'А', chakra: 'Макушка', light: 'белый', c: '#ffffff', c2: '#9fb6ff', scale: 1,
+    quality: 'Пространство, неизменное тело, мудрость пустоты' },
+  { id: 'om', tib: 'ཨོཾ', ru: 'ОМ', chakra: 'Горло', light: 'красный', c: '#ff7a6b', c2: '#c9302c', scale: 0.85,
+    quality: 'Речь, спонтанное совершенство, сострадание, зеркальная мудрость' },
+  { id: 'hung', tib: 'ཧཱུྃ', ru: 'ХУНГ', alt: ['ХУМ'], chakra: 'Сердце', light: 'синий', c: '#7fb0ff', c2: '#2449a8', scale: 0.74,
+    quality: 'Ум, проявление качества, мудрость равностности' },
+  { id: 'ram', tib: 'རཾ', ru: 'РАМ', chakra: 'Пупок', light: 'красный', c: '#ff9466', c2: '#c9302c', scale: 0.92,
+    quality: 'Огонь, созревание качества, различающая мудрость' },
+  { id: 'dza', tib: 'ཛ', ru: 'ДЗА', chakra: 'Тайная чакра', light: 'зелёный', c: '#8fe0a8', c2: '#23874b', scale: 1,
+    quality: 'Действие, всесовершающая мудрость' },
+];
+function glyph(s, size) {
+  return `<span class="tib" data-glyph style="--c:${s.c};--c2:${s.c2};font-size:${Math.round(size * s.scale)}px" aria-label="${esc(s.ru)}">${s.tib}</span>`;
+}
+// Tibetan letters hang from the top of the line box, so centre each glyph on its ink box.
+let tibCtx;
+function centerGlyphs() {
+  const els = document.querySelectorAll('[data-glyph]:not([data-centered])');
+  if (!els.length || !document.fonts) return;
+  document.fonts.load('700 40px TibSyl', 'ཨ').then(() => {
+    tibCtx = tibCtx || document.createElement('canvas').getContext('2d');
+    els.forEach(el => {
+      tibCtx.font = `700 ${getComputedStyle(el).fontSize} TibSyl`;
+      const m = tibCtx.measureText(el.textContent);
+      el.style.transform = `translateY(${(m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2}px)`;
+      el.dataset.centered = '1';
+    });
+  }).catch(() => {});
+}
+// syllables mentioned in a practice: by name, or at least two of the five in its description
+function practiceSyllables(p) {
+  const has = (txt, s) => [s.ru, ...(s.alt || [])].some(w => new RegExp(`(^|[^А-ЯЁа-яё])${w}([^А-ЯЁа-яё]|$)`).test(txt));
+  const inName = SYLLABLES.filter(s => has(p.name, s));
+  if (inName.length) return inName;
+  const all = [p.name, p.purpose, ...(p.steps || []), p.notes].filter(Boolean).join(' ');
+  const found = SYLLABLES.filter(s => has(all, s));
+  return found.length >= 2 ? found : [];
+}
+function syllableStrip(p) {
+  const list = practiceSyllables(p);
+  if (!list.length) return '';
+  return `<a class="syl-strip" href="#/syllables">
+    ${list.map(s => `<span class="syl-mini"><span class="glyph-box">${glyph(s, 44)}</span><small>${esc(s.ru)}</small></span>`).join('')}
+  </a>`;
+}
+Tools.views.syllables = () => `<a class="back" href="#/tools">‹ Практикум</a>
+  <div class="syl-page">
+    <h1>Пять слогов</h1>
+    <p class="lead">Пять нерушимых слогов-воинов, сущность пяти мудростей. Цвета и чакры по книге «Тибетская йога тела, речи и ума».</p>
+    ${SYLLABLES.map(s => `<div class="syl-card">
+      <span class="glyph-box big">${glyph(s, 64)}</span>
+      <div><b>${esc(s.ru)}</b><div class="small">${esc(s.chakra)} · ${esc(s.light)} свет</div><div class="small muted2">${esc(s.quality)}</div></div>
+    </div>`).join('')}
+    ${refLinks('trum', ['c7', 'c8'], false)}
+    <p class="row-btns"><a class="btn" href="#/practice/trum/9">Практика пяти слогов-воинов</a><a class="btn" href="#/charts">Схема с телом</a></p>
+  </div>`;
