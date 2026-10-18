@@ -417,3 +417,14 @@ label.btn { cursor: pointer; }
 .to-top.show { opacity: .92; transform: none; pointer-events: auto; }
 .to-top svg { width: 24px; height: 24px; stroke-width: 2.2; }
 @media (min-width: 900px) { .to-top { bottom: 24px; right: 24px; } }
+
+/* share */
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 20px); z-index: 12;
+  transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  background: #22201c; color: #f7f4ec; padding: 10px 16px; border-radius: 12px; font-size: .9em; width: max-content; max-width: 90vw; text-align: center;
+}
+.toast.show { opacity: .95; transform: translate(-50%, 0); }
+.share-card { display: flex; align-items: center; gap: 14px; }
+.share-card .ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); flex: none; }
+.share-card p { margin: 0; }

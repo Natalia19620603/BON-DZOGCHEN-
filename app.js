@@ -289,6 +289,13 @@ function viewHome() {
     <div class="topics">${topicCards}</div>
     <h2>Книги</h2>
     ${bookCards()}
+    <h2>Поделиться</h2>
+    <div class="card share-card">
+      <span class="ico"><svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg></span>
+      <div><p>Отправьте приложение другу: оно откроется по ссылке на любом телефоне и компьютере.</p>
+      <p class="row-btns"><button class="btn primary" data-share-app>Поделиться с другом</button></p></div>
+    </div>
+    <p class="muted small">Значок «Поделиться» вверху экрана отправляет ссылку на ту статью, которая сейчас открыта, например на термин или практику.</p>
     <h2>Установить на телефон</h2>
     <div class="card small">
       <p><b>iPhone:</b> откройте сайт в Safari → «Поделиться» → «На экран “Домой”».</p>
@@ -650,6 +657,36 @@ document.getElementById('font').addEventListener('click', () => {
 });
 
 window.addEventListener('hashchange', route);
+
+// ---------- share ----------
+const APP_URL = 'https://natalia19620603.github.io/BON-DZOGCHEN-/';
+const APP_TEXT = 'Справочник по учению Бон и Дзогчен по книгам Тензина Вангьяла Ринпоче: термины, практики, таймер медитации, дневник снов.';
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+// whole = share the app's home page; otherwise share the page that is open (a term, a practice…)
+async function share(whole) {
+  const hash = location.hash && !whole && !/^#\/(search|saved|journal|cards|random)/.test(location.hash) ? location.hash : '';
+  const url = APP_URL + hash;
+  const h1 = document.querySelector('#view h1');
+  const title = hash && h1 ? `${h1.textContent.trim()} · Бон и Дзогчен` : 'Бон и Дзогчен';
+  if (navigator.share) {
+    try { await navigator.share({ title, text: hash ? title : APP_TEXT, url }); } catch { /* cancelled */ }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('Ссылка скопирована. Отправьте её другу в мессенджере.');
+  } catch {
+    prompt('Скопируйте ссылку:', url);
+  }
+}
+document.getElementById('share').addEventListener('click', () => share(false));
+document.addEventListener('click', e => { if (e.target.closest('[data-share-app]')) share(true); });
 
 // back-to-top button: shown once the page is scrolled more than about one screen
 const $top = document.getElementById('to-top');

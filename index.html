@@ -20,6 +20,9 @@
       <div class="top-row">
         <a class="brand" href="#/"><img src="icons/icon-192.png" alt="" width="28" height="28">Бон и Дзогчен</a>
         <div class="top-actions">
+          <button id="share" class="icon-btn" aria-label="Поделиться" title="Поделиться">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg>
+          </button>
           <a class="icon-btn" href="#/saved" aria-label="Избранное" title="Избранное">
             <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
           </a>
@@ -54,6 +57,7 @@
     Краткий справочник по книгам Тензина Вангьяла Ринпоче: пересказ и короткие цитаты со ссылкой на книгу и главу. Полные тексты читайте в самих книгах.
   </footer>
   <button id="to-top" class="to-top" aria-label="Наверх" title="Наверх"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
   <script src="tools.js"></script>
 </body>
