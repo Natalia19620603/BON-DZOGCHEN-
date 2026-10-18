@@ -464,3 +464,20 @@ label.btn { cursor: pointer; }
 .body-fig .body-stage .lbl { fill: #8f89aa; }
 .glyph-box.on-body { position: absolute; left: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: radial-gradient(circle, #15162a 45%, rgba(21,22,42,0) 72%); }
 .body-tag { position: absolute; left: calc(50% + 26px); transform: translateY(-50%); font-size: 11px; color: #cfcae2; white-space: nowrap; text-shadow: 0 0 4px #15162a; }
+
+/* ---------- mantras ---------- */
+.mantra-page h2 { color: #cfcae2; font-size: .8em; text-transform: uppercase; letter-spacing: .08em; margin: 22px 0 6px; font-family: inherit; }
+.mantra-text { display: flex; flex-direction: column; gap: 2px; font-family: Georgia, serif; font-weight: 600; letter-spacing: .06em; line-height: 1.35; color: #fff; text-shadow: 0 0 6px var(--mc), 0 0 18px var(--mc); overflow-wrap: anywhere; }
+.mantra-text.big { font-size: 1.45em; text-align: center; margin: 10px 0 12px; }
+.mantra-card { display: block; background: rgba(255,255,255,.04); border: 1px solid #3b3666; border-radius: 16px; padding: 10px 14px 12px; margin: 8px 0; color: inherit; }
+.mantra-card:hover { text-decoration: none; border-color: #6d64b0; }
+.mantra-card small, .mantra-aka { display: block; color: #b6b0cc; font-size: .78em; margin-bottom: 4px; }
+.mantra-aka { text-align: center; margin-top: 4px; }
+.mantra-page > .small { text-align: center; }
+.mantra-seed { color: #fff; text-shadow: 0 0 6px var(--mc); letter-spacing: .05em; }
+.mantra-page .syl-strip { justify-content: center; background: rgba(255,255,255,.04); margin-bottom: 0; }
+.mantra-sub { letter-spacing: .03em; }
+.mantra-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 14px; }
+.meaning { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
+.meaning dt { font-weight: 600; letter-spacing: .04em; }
+.meaning dd { margin: 0; }

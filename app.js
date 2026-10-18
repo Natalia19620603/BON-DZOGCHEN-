@@ -29,6 +29,8 @@ const state = {
   practices: [],     // {id, book, idx, p}
   ideas: [],         // {id, book, i}
   quotes: [],        // {id, book, q}
+  mantras: [],       // {id, group, name, lines, ...}
+  mantraGroups: [],
   filter: null,      // book id or null
   saved: null,
   linker: null,
@@ -63,11 +65,18 @@ function termKey(name) {
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+// Rough Russian stem, so «мантра» finds «мантры», «богиня» finds «богинь».
+const ENDING = /(иями|ями|ами|ого|его|ему|ому|ыми|ими|ией|ий|ый|ой|ая|яя|ое|ее|ые|ие|ов|ев|ей|ам|ям|ах|ях|ом|ем|ую|юю|ию|ия|ья|ье|ьи|а|я|о|е|ы|и|у|ю|ь|й)$/;
+function stem(w) {
+  if (w.length < 5 || !/[а-я]$/.test(w)) return w;
+  const s = w.replace(ENDING, '');
+  return s.length >= 4 ? s : w.slice(0, 4);
+}
 function reEsc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function hl(text, q) {
   const t = esc(text);
   if (!q) return t;
-  const words = norm(q).split(' ').filter(w => w.length > 1);
+  const words = norm(q).split(' ').filter(w => w.length > 1).map(stem);
   if (!words.length) return t;
   const lower = String(text).toLowerCase().replace(/ё/g, 'е');
   const marks = [];
@@ -106,6 +115,8 @@ async function load() {
   const res = await fetch('data/all.json');
   const data = await res.json();
   state.books = data.books;
+  state.mantras = data.mantras || [];
+  state.mantraGroups = data.mantraGroups || [];
   for (const b of data.books) {
     state.bookById[b.id] = b;
     b.chapterById = {};
@@ -284,6 +295,7 @@ function viewHome() {
       <a class="tool" href="#/journal"><span class="ico">✎</span><b>Дневник</b></a>
       <a class="tool" href="#/cards"><span class="ico">❖</span><b>Карточки</b></a>
       <a class="tool" href="#/charts"><span class="ico">✦</span><b>Схемы</b></a>
+      <a class="tool" href="#/mantras"><span class="ico"><span class="tib" data-glyph style="--c:#ff7a6b;--c2:#c9302c;font-size:20px">ཨོཾ</span></span><b>Мантры</b></a>
     </div>
     <h2>Темы</h2>
     <div class="topics">${topicCards}</div>
@@ -407,12 +419,68 @@ function viewPractice(book, idx) {
     ${syllableStrip(p)}
     ${p.steps && p.steps.length ? `<div class="card b-${book}"><h3>Как выполнять</h3><ol class="steps">${p.steps.map(s => `<li>${linkify(s)}</li>`).join('')}</ol></div>` : ''}
     ${p.notes ? `<div class="callout"><b>Важно</b>${linkify(p.notes)}</div>` : ''}
+    ${mantraChips(state.mantras.filter(m => (m.practices || []).includes(`${book}/${idx}`)))}
     ${refLinks(book, p.chapters, true)}
     ${noteBox(x.id)}
     <p class="muted small">Это краткий пересказ для памяти. Подробные указания читайте в книге и получайте у учителя.</p>
     <div class="pager">
       ${prev ? `<a href="${practiceHref(prev)}"><small>‹ Предыдущая</small>${esc(prev.p.name)}</a>` : '<span></span>'}
       ${next ? `<a class="next" href="${practiceHref(next)}"><small>Следующая ›</small>${esc(next.p.name)}</a>` : '<span></span>'}
+    </div>`;
+}
+
+// ---------- mantras ----------
+function mantraHay(m) {
+  const g = state.mantraGroups.find(x => x.id === m.group);
+  return ['мантра', m.name, m.aka, m.element, m.lines, m.purpose, m.how, g && g.title, (m.meaning || []).flat()];
+}
+function mantraLines(m, big) {
+  return `<div class="mantra-text${big ? ' big' : ''}" style="--mc:${m.color || '#fff'}">${m.lines.map(l => `<span>${esc(l)}</span>`).join('')}</div>`;
+}
+function mantraRow(m, q) {
+  return `<li><a href="#/mantra/${m.id}"><span class="main">${hl(m.aka, q)}<span class="sub mantra-sub">${hl(m.name, q)}</span></span>${dotsFor([...new Set(m.refs.map(r => r.book))])}${ICON_CHEV}</a></li>`;
+}
+function mantraChips(list) {
+  if (!list.length) return '';
+  return `<div class="mantra-chips"><span class="refs-label">Мантры:</span>${list.map(m => `<a class="chip" href="#/mantra/${m.id}">${esc(m.aka)}</a>`).join('')}</div>`;
+}
+function viewMantras() {
+  return `<a class="back" href="#/tools">‹ Практикум</a>
+    <div class="syl-page mantra-page">
+      <h1>Мантры</h1>
+      <p class="lead">${state.mantras.length} ${plural(state.mantras.length, 'мантра', 'мантры', 'мантр')} из книг Тензина Вангьяла Ринпоче, со ссылкой на книгу и главу. Нажмите на мантру, чтобы узнать, для чего и как её петь.</p>
+      ${state.mantraGroups.map(g => {
+        const list = state.mantras.filter(m => m.group === g.id);
+        return list.length ? `<h2>${esc(g.title)}</h2>${list.map(m => `<a class="mantra-card" href="#/mantra/${m.id}">
+          <small>${esc(m.element ? m.element + ' · ' + m.aka : m.aka)}</small>${mantraLines(m)}</a>`).join('')}` : '';
+      }).join('')}
+    </div>
+    <p class="muted small">Мантры записаны русскими буквами, как в книгах. Произношение и передачу получайте у учителя.</p>`;
+}
+function viewMantra(id) {
+  const m = state.mantras.find(x => x.id === id);
+  if (!m) return notFound();
+  const group = state.mantras.filter(x => x.group === m.group);
+  const pos = group.indexOf(m);
+  const prev = group[pos - 1], next = group[pos + 1];
+  const practices = (m.practices || []).map(r => state.practices.find(x => x.id === `p:${r.replace('/', ':')}`)).filter(Boolean);
+  const glyphs = ['a-om-hung', 'five-warriors'].includes(m.id) ? syllableStrip({ name: m.name }) : '';
+  return `<a class="back" href="#/mantras">‹ Все мантры</a>
+    <div class="syl-page mantra-page">
+      <small class="mantra-aka">${esc(m.element ? m.element + ' · ' + m.aka : m.aka)}</small>
+      ${mantraLines(m, true)}
+      ${m.seed ? `<p class="small muted2">Мантра-источник для преображения в богиню: <b class="mantra-seed" style="--mc:${m.color}">${esc(m.seed)}</b>, три, пять или семь раз.</p>` : ''}
+      ${glyphs}
+    </div>
+    <p class="purpose">${linkify(m.purpose)}</p>
+    ${m.how ? `<div class="card"><h3>Как петь</h3><p>${linkify(m.how)}</p></div>` : ''}
+    ${m.meaning ? `<div class="card"><h3>Значение слогов</h3><dl class="meaning">${m.meaning.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}
+    ${m.note ? `<div class="callout"><b>Примечание</b>${esc(m.note)}</div>` : ''}
+    ${m.refs.map(r => refLinks(r.book, r.chapters, false)).join('')}
+    ${practices.length ? `<h2>Практики</h2><ul class="list">${practices.map(x => practiceRow(x, true)).join('')}</ul>` : ''}
+    <div class="pager">
+      ${prev ? `<a href="#/mantra/${prev.id}"><small>‹ Предыдущая</small>${esc(prev.aka)}</a>` : '<span></span>'}
+      ${next ? `<a class="next" href="#/mantra/${next.id}"><small>Следующая ›</small>${esc(next.aka)}</a>` : '<span></span>'}
     </div>`;
 }
 
@@ -482,7 +550,7 @@ function viewChapter(id, cid) {
 }
 
 function matches(q, ...fields) {
-  const words = norm(q).split(' ').filter(Boolean);
+  const words = norm(q).split(' ').filter(Boolean).map(stem);
   const hay = norm(fields.flat().filter(Boolean).join(' '));
   return words.every(w => hay.includes(w));
 }
@@ -494,19 +562,30 @@ function viewSearch(q) {
   const rank = g => (norm(g.name).startsWith(nq) ? 2 : 0) + (norm(g.name).includes(nq) || [...g.alts].some(a => norm(a).includes(nq)) ? 1 : 0);
   terms.sort((a, b) => rank(b) - rank(a));
   const pr = state.practices.filter(x => matches(q, x.p.name, x.p.purpose, x.p.steps, x.p.notes));
+  const prRank = x => (matches(q, x.p.name) ? 1 : 0);
+  pr.sort((a, b) => prRank(b) - prRank(a));
+  const mantras = state.mantras.filter(m => matches(q, mantraHay(m)));
   const ideas = state.ideas.filter(x => matches(q, x.i.title, x.i.summary));
   const quotes = state.quotes.filter(x => matches(q, x.q.text, x.q.topic));
-  const total = terms.length + pr.length + ideas.length + quotes.length;
-  return `<h1>Поиск</h1>
-    <p class="lead">${total ? `По запросу «${esc(q)}» найдено ${total}` : `По запросу «${esc(q)}» ничего не найдено. Попробуйте другое написание, например «шинэ» или «шине».`}</p>
-    ${terms.length ? `<h2>Термины · ${terms.length}</h2><ul class="list">${terms.map(g => {
+  const total = mantras.length + terms.length + pr.length + ideas.length + quotes.length;
+  const sections = [
+    ['mantras', 'Мантры', mantras.length, () => `<ul class="list">${mantras.map(m => mantraRow(m, q)).join('')}</ul>`],
+    ['practices', 'Практики', pr.length, () => `<ul class="list">${pr.map(x =>
+      `<li><a href="${practiceHref(x)}"><span class="main">${hl(x.p.name, q)}<span class="sub">${hl(cut(x.p.purpose || '', 110), q)}</span></span>${dotsFor([x.book])}${ICON_CHEV}</a></li>`).join('')}</ul>`],
+    ['terms', 'Термины', terms.length, () => `<ul class="list">${terms.map(g => {
       const def = g.entries[0].term.definition;
       return `<li><a href="#/term/${encodeURIComponent(g.key)}"><span class="main">${hl(g.name, q)}<span class="sub">${hl(cut(def, 110), q)}</span></span>${dotsFor(g.entries.map(e => e.book))}${ICON_CHEV}</a></li>`;
-    }).join('')}</ul>` : ''}
-    ${pr.length ? `<h2>Практики · ${pr.length}</h2><ul class="list">${pr.map(x =>
-      `<li><a href="${practiceHref(x)}"><span class="main">${hl(x.p.name, q)}<span class="sub">${hl(cut(x.p.purpose || '', 110), q)}</span></span>${dotsFor([x.book])}${ICON_CHEV}</a></li>`).join('')}</ul>` : ''}
-    ${ideas.length ? `<h2>Идеи · ${ideas.length}</h2>${ideas.map(x => ideaCard(x, q)).join('')}` : ''}
-    ${quotes.length ? `<h2>Цитаты · ${quotes.length}</h2>${quotes.map(x => quoteCard(x, q)).join('')}` : ''}`;
+    }).join('')}</ul>`],
+    ['ideas', 'Идеи', ideas.length, () => ideas.map(x => ideaCard(x, q)).join('')],
+    ['quotes', 'Цитаты', quotes.length, () => quotes.map(x => quoteCard(x, q)).join('')],
+  ].filter(s => s[2]);
+  // a section whose item titles match the query comes first: «гуру-йога» shows practices before terms
+  const titleHit = { mantras: mantras.some(m => matches(q, m.name, m.aka)), practices: pr.some(x => matches(q, x.p.name)) };
+  if (!titleHit.mantras && titleHit.practices && !terms.some(g => matches(q, g.name))) sections.sort((a, b) => (b[0] === 'practices') - (a[0] === 'practices'));
+  return `<h1>Поиск</h1>
+    <p class="lead">${total ? `По запросу «${esc(q)}» найдено ${total}` : `По запросу «${esc(q)}» ничего не найдено. Попробуйте другое написание, например «шинэ» или «шине».`}</p>
+    ${sections.length > 1 ? `<div class="chips wrap">${sections.map(([id, title, n]) => `<a class="chip" href="#" data-jump="s-${id}">${title} · ${n}</a>`).join('')}</div>` : ''}
+    ${sections.map(([id, title, n, body]) => `<h2 id="s-${id}">${title} · ${n}</h2>${body()}`).join('')}`;
 }
 
 function viewSaved() {
@@ -531,7 +610,7 @@ function notFound() {
 }
 
 // ---------- router ----------
-const TAB_OF = { term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', syllables: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
+const TAB_OF = { mantras: 'tools', mantra: 'tools', term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', syllables: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
 
 function route() {
   const hash = location.hash.replace(/^#/, '') || '/';
@@ -563,6 +642,8 @@ function route() {
     case 'term': html = viewTerm(parts[1]); break;
     case 'practices': html = viewPractices(); break;
     case 'practice': html = viewPractice(parts[1], parts[2]); break;
+    case 'mantras': html = viewMantras(); break;
+    case 'mantra': html = viewMantra(parts[1]); break;
     case 'ideas': html = viewIdeas(); break;
     case 'quotes': html = viewQuotes(); break;
     case 'books': html = viewBooks(); break;

@@ -78,7 +78,36 @@ def main():
             check_quote(q, f"quote #{n}")
         books.append(b)
 
-    out.write_text(json.dumps({"books": books}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    result = {"books": books}
+    mf = src / "mantras.json"
+    if mf.exists():
+        m = json.loads(mf.read_text(encoding="utf-8"))
+        by_id = {b["id"]: b for b in books}
+        groups = {g["id"] for g in m["groups"]}
+        texts = {}
+        for x in m["mantras"]:
+            where = f"mantra «{x['name']}»"
+            if x["group"] not in groups:
+                problems.append(f"{where}: unknown group {x['group']}")
+            for r in x.get("refs", []):
+                chs = {c["id"] for c in by_id[r["book"]]["chapters"]}
+                problems += [f"{where}: unknown chapter {r['book']}/{c}" for c in r["chapters"] if c not in chs]
+            for ref in x.get("practices", []):
+                bid, idx = ref.split("/")
+                if int(idx) >= len(by_id[bid].get("practices", [])):
+                    problems.append(f"{where}: unknown practice {ref}")
+            if books_dir:
+                for bid, t in x.get("check", []):
+                    if bid not in texts:
+                        raw = (books_dir / BOOK_FILES[bid]).read_text(encoding="utf-8")
+                        texts[bid] = squash(re.sub(r"(?m)^\s*(\d{1,3}|.*e-puzzle\.ru.*)\s*$\n?", "", raw))
+                    if squash(t) not in texts[bid]:
+                        problems.append(f"{where}: not found in {bid}: {t[:60]}…")
+            x.pop("check", None)
+        result["mantraGroups"] = m["groups"]
+        result["mantras"] = m["mantras"]
+        print(f"mantras    {len(m['mantras'])}")
+    out.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for b in books:
         nq = len(b.get("quotes", [])) + sum(1 for t in b.get("terms", []) if t.get("quote", {}).get("text"))
         print(f"{b['id']:10} chapters={len(b['chapters']):3} terms={len(b.get('terms', [])):3} "
