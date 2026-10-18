@@ -428,3 +428,39 @@ label.btn { cursor: pointer; }
 .share-card { display: flex; align-items: center; gap: 14px; }
 .share-card .ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); flex: none; }
 .share-card p { margin: 0; }
+
+/* ---------- glowing Tibetan syllables ---------- */
+@font-face { font-family: TibSyl; src: url(fonts/tibetan-syllables.woff2) format("woff2"); font-weight: 700; font-display: block; }
+.tib {
+  font-family: TibSyl, serif; font-weight: 700; line-height: 0; display: block; height: 0;
+  color: var(--c); filter: drop-shadow(0 0 4px var(--c)) drop-shadow(0 0 12px var(--c2));
+}
+.glyph-box { display: grid; place-items: center; width: 64px; height: 64px; flex: none; }
+.glyph-box.big { width: 96px; height: 96px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.07), transparent 70%); }
+.syl-page { background: linear-gradient(170deg, #15162a, #23213f); color: #ece8f6; border-radius: 18px; padding: 18px 16px 20px; }
+.syl-page h1 { color: #fff; }
+.syl-page .lead { color: #b6b0cc; }
+.syl-card { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,.04); border: 1px solid #3b3666; border-radius: 16px; padding: 10px 14px; margin: 10px 0; }
+.syl-card b { font-family: Georgia, serif; font-size: 1.25em; color: #fff; }
+.syl-page .muted2 { color: #b6b0cc; }
+.syl-page .ref { background: #2c2950; color: #ece8f6; }
+.syl-page .btn { background: rgba(255,255,255,.08); border-color: #3b3666; color: #ece8f6; }
+.syl-strip {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; margin: 6px 0 14px; padding: 10px 12px;
+  background: linear-gradient(170deg, #15162a, #23213f); border-radius: 14px;
+}
+.syl-strip:hover { text-decoration: none; filter: brightness(1.1); }
+.syl-mini { display: flex; flex-direction: column; align-items: center; width: 56px; }
+.syl-mini .glyph-box { width: 52px; height: 52px; }
+.syl-mini small { color: #cfcae2; font-size: .72em; }
+.syl-tool .ico { background: #1b1c36 !important; }
+.body-fig .body-stage {
+  position: relative; width: 300px; max-width: 100%; margin: 0 auto; padding: 10px 0;
+  background: radial-gradient(ellipse at 50% 40%, #2a2650, #15162a 75%); border-radius: 18px;
+}
+.body-fig .body-inner { position: relative; width: 230px; margin: 0 auto; }
+.body-fig .body-stage svg { width: 100%; display: block; }
+.body-fig .body-stage .silh { fill: #25234a; stroke: #3b3666; }
+.body-fig .body-stage .lbl { fill: #8f89aa; }
+.glyph-box.on-body { position: absolute; left: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: radial-gradient(circle, #15162a 45%, rgba(21,22,42,0) 72%); }
+.body-tag { position: absolute; left: calc(50% + 26px); transform: translateY(-50%); font-size: 11px; color: #cfcae2; white-space: nowrap; text-shadow: 0 0 4px #15162a; }

@@ -403,6 +403,7 @@ function viewPractice(book, idx) {
       <div class="head-row"><h1>${esc(p.name)}</h1>${starBtn(x.id)}</div>
     </div>
     <p class="purpose">${linkify(p.purpose)}</p>
+    ${syllableStrip(p)}
     ${p.steps && p.steps.length ? `<div class="card b-${book}"><h3>Как выполнять</h3><ol class="steps">${p.steps.map(s => `<li>${linkify(s)}</li>`).join('')}</ol></div>` : ''}
     ${p.notes ? `<div class="callout"><b>Важно</b>${linkify(p.notes)}</div>` : ''}
     ${refLinks(book, p.chapters, true)}
@@ -529,7 +530,7 @@ function notFound() {
 }
 
 // ---------- router ----------
-const TAB_OF = { term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
+const TAB_OF = { term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', syllables: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
 
 function route() {
   const hash = location.hash.replace(/^#/, '') || '/';
@@ -580,6 +581,7 @@ function route() {
   $view.innerHTML = html;
   if (parts[0] !== 'search') window.scrollTo(0, 0);
   if (Tools.after[parts[0]]) Tools.after[parts[0]](parts);
+  centerGlyphs();
 }
 function setActive(tab) {
   document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
