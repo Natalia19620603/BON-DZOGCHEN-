@@ -481,3 +481,25 @@ label.btn { cursor: pointer; }
 .meaning { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; }
 .meaning dt { font-weight: 600; letter-spacing: .04em; }
 .meaning dd { margin: 0; }
+
+/* ---------- breathing ---------- */
+.phases { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 10px 0 14px; }
+.phase { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.phase b { display: flex; align-items: center; gap: 8px; font-size: .78em; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.phase b span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font-size: 1.2em; color: #fff; }
+.ph-inhale b span { background: #3fa66b; }
+.ph-hold b span { background: #6a4fb8; }
+.ph-exhale b span { background: #3a6fd0; }
+.phase p { margin: 6px 0 0; font-size: .92em; }
+.breath-ver { margin-top: 18px; }
+.breath-ver > h2 { margin-bottom: 4px; }
+.breath-ver .callout { margin: 10px 0; }
+.callout.warn { background: color-mix(in srgb, #d64545 12%, var(--surface-2)); }
+.posture { margin: 6px 0; }
+.card.diff ul { margin: 0; padding-left: 18px; }
+.card.diff li { margin: 4px 0; }
+.card.diff > summary { cursor: pointer; }
+.card.diff[open] > summary { margin-bottom: 6px; }
+@media (min-width: 640px) { .phases { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); } }
+.phase p { overflow-wrap: anywhere; }
+.mantra-chips .chip { white-space: normal; max-width: 100%; }

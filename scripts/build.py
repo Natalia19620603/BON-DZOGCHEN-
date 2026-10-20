@@ -79,12 +79,12 @@ def main():
         books.append(b)
 
     result = {"books": books}
+    texts = {}
     mf = src / "mantras.json"
     if mf.exists():
         m = json.loads(mf.read_text(encoding="utf-8"))
         by_id = {b["id"]: b for b in books}
         groups = {g["id"] for g in m["groups"]}
-        texts = {}
         for x in m["mantras"]:
             where = f"mantra «{x['name']}»"
             if x["group"] not in groups:
@@ -107,6 +107,40 @@ def main():
         result["mantraGroups"] = m["groups"]
         result["mantras"] = m["mantras"]
         print(f"mantras    {len(m['mantras'])}")
+    bf = src / "breath.json"
+    if bf.exists():
+        br = json.loads(bf.read_text(encoding="utf-8"))
+        by_id = {b["id"]: b for b in books}
+        groups = {g["id"] for g in br["groups"]}
+        ids = {x["id"] for x in br["items"]}
+        for x in br["items"]:
+            where = f"breath «{x['name']}»"
+            if x["group"] not in groups:
+                problems.append(f"{where}: unknown group {x['group']}")
+            problems += [f"{where}: unknown related {r}" for r in x.get("related", []) if r not in ids]
+            for v in x["versions"]:
+                chs = {c["id"] for c in by_id[v["book"]]["chapters"]}
+                problems += [f"{where}: unknown chapter {v['book']}/{c}" for c in v.get("chapters", []) if c not in chs]
+                if v.get("practice"):
+                    bid, idx = v["practice"].split("/")
+                    if bid != v["book"] or int(idx) >= len(by_id[bid].get("practices", [])):
+                        problems.append(f"{where}: bad practice {v['practice']}")
+                q = v.get("quote")
+                if q:
+                    if q.get("chapter") not in chs:
+                        problems.append(f"{where}: quote has unknown chapter {q.get('chapter')}")
+                    if len(q["text"]) > MAX_QUOTE:
+                        problems.append(f"{where}: quote too long")
+                    if books_dir:
+                        if v["book"] not in texts:
+                            raw = (books_dir / BOOK_FILES[v["book"]]).read_text(encoding="utf-8")
+                            texts[v["book"]] = squash(re.sub(r"(?m)^\s*(\d{1,3}|.*e-puzzle\.ru.*)\s*$\n?", "", raw))
+                        if squash(q["text"]) not in texts[v["book"]]:
+                            problems.append(f"{where}: quote not verbatim in {v['book']}: {q['text'][:60]}…")
+        result["breathGroups"] = br["groups"]
+        result["breathDifferences"] = br.get("differences", [])
+        result["breath"] = br["items"]
+        print(f"breath     {len(br['items'])}")
     out.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     for b in books:
         nq = len(b.get("quotes", [])) + sum(1 for t in b.get("terms", []) if t.get("quote", {}).get("text"))

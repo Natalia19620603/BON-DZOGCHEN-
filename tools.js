@@ -619,6 +619,7 @@ Tools.views.tools = () => {
     <a class="tool" href="#/charts"><span class="ico">✦</span><b>Схемы и таблицы</b><span>Элементы, каналы, чакры, миры</span></a>
     <a class="tool syl-tool" href="#/syllables"><span class="ico"><span class="tib" data-glyph style="--c:#7fb0ff;--c2:#2449a8;font-size:22px">ཧཱུྃ</span></span><b>Пять слогов</b><span>А, ОМ, ХУНГ, РАМ, ДЗА</span></a>
     <a class="tool" href="#/mantras"><span class="ico"><span class="tib" data-glyph style="--c:#ff7a6b;--c2:#c9302c;font-size:20px">ཨོཾ</span></span><b>Мантры</b><span>Главные мантры, пять богинь, Али-Кали</span></a>
+    <a class="tool" href="#/breath"><span class="ico">≋</span><b>Дыхание</b><span>Девять дыханий, цалунг, дыхание во сне</span></a>
     <a class="tool" href="#/quotes"><span class="ico">❝</span><b>Цитаты</b><span>Все цитаты из книг</span></a>
   </div>`;
 };
