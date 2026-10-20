@@ -1,5 +1,5 @@
 // Bump VERSION on every deploy so phones pick up new content.
-const VERSION = 'v9';
+const VERSION = 'v10';
 const CACHE = 'bon-dzogchen-' + VERSION;
 const ASSETS = [
   './',
