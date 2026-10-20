@@ -31,6 +31,8 @@ const state = {
   quotes: [],        // {id, book, q}
   mantras: [],       // {id, group, name, lines, ...}
   mantraGroups: [],
+  breath: [],        // {id, group, name, aka, purpose, versions:[{book, steps, …}], differences}
+  breathGroups: [],
   filter: null,      // book id or null
   saved: null,
   linker: null,
@@ -117,6 +119,9 @@ async function load() {
   state.books = data.books;
   state.mantras = data.mantras || [];
   state.mantraGroups = data.mantraGroups || [];
+  state.breath = data.breath || [];
+  state.breathGroups = data.breathGroups || [];
+  state.breathDifferences = data.breathDifferences || [];
   for (const b of data.books) {
     state.bookById[b.id] = b;
     b.chapterById = {};
@@ -296,6 +301,7 @@ function viewHome() {
       <a class="tool" href="#/cards"><span class="ico">❖</span><b>Карточки</b></a>
       <a class="tool" href="#/charts"><span class="ico">✦</span><b>Схемы</b></a>
       <a class="tool" href="#/mantras"><span class="ico"><span class="tib" data-glyph style="--c:#ff7a6b;--c2:#c9302c;font-size:20px">ཨོཾ</span></span><b>Мантры</b></a>
+      <a class="tool" href="#/breath"><span class="ico">≋</span><b>Дыхание</b></a>
     </div>
     <h2>Темы</h2>
     <div class="topics">${topicCards}</div>
@@ -420,6 +426,7 @@ function viewPractice(book, idx) {
     ${p.steps && p.steps.length ? `<div class="card b-${book}"><h3>Как выполнять</h3><ol class="steps">${p.steps.map(s => `<li>${linkify(s)}</li>`).join('')}</ol></div>` : ''}
     ${p.notes ? `<div class="callout"><b>Важно</b>${linkify(p.notes)}</div>` : ''}
     ${mantraChips(state.mantras.filter(m => (m.practices || []).includes(`${book}/${idx}`)))}
+    ${breathChips(state.breath.filter(b => b.versions.some(v => v.practice === `${book}/${idx}`)))}
     ${refLinks(book, p.chapters, true)}
     ${noteBox(x.id)}
     <p class="muted small">Это краткий пересказ для памяти. Подробные указания читайте в книге и получайте у учителя.</p>
@@ -481,6 +488,77 @@ function viewMantra(id) {
     <div class="pager">
       ${prev ? `<a href="#/mantra/${prev.id}"><small>‹ Предыдущая</small>${esc(prev.aka)}</a>` : '<span></span>'}
       ${next ? `<a class="next" href="#/mantra/${next.id}"><small>Следующая ›</small>${esc(next.aka)}</a>` : '<span></span>'}
+    </div>`;
+}
+
+// ---------- breathing ----------
+function breathHay(b) {
+  const g = state.breathGroups.find(x => x.id === b.group);
+  return ['дыхание', b.name, b.aka, b.purpose, g && g.title, b.differences,
+    b.versions.map(v => [v.posture, v.inhale, v.hold, v.exhale, v.steps, v.channels, v.notes, v.cautions])];
+}
+function breathBooks(b) { return [...new Set(b.versions.map(v => v.book))]; }
+function breathRow(b, q) {
+  return `<li><a href="#/breath/${b.id}"><span class="main">${hl(b.name, q)}<span class="sub">${hl(cut(b.aka || b.purpose, 110), q)}</span></span>${dotsFor(breathBooks(b))}${ICON_CHEV}</a></li>`;
+}
+function breathChips(list) {
+  if (!list.length) return '';
+  return `<div class="mantra-chips"><span class="refs-label">Дыхание:</span>${list.map(b => `<a class="chip" href="#/breath/${b.id}">${esc(b.name)}</a>`).join('')}</div>`;
+}
+function viewBreath() {
+  const n = state.breath.length;
+  return `<a class="back" href="#/tools">‹ Практикум</a>
+    <h1>Дыхание</h1>
+    <p class="lead">${n} ${plural(n, 'способ', 'способа', 'способов')} дыхания из книг Тензина Вангьяла Ринпоче: как вдыхать, задерживать и выдыхать, куда направлять внимание. Если книги описывают одно и то же по-разному, показаны все варианты.</p>
+    ${state.breathGroups.map(g => {
+      const list = state.breath.filter(b => b.group === g.id);
+      return list.length ? `<h2>${esc(g.title)}</h2><ul class="list">${list.map(b => breathRow(b)).join('')}</ul>` : '';
+    }).join('')}
+    ${state.breathDifferences.length ? `<details class="card diff"><summary><b>Чем книги отличаются</b></summary><ul>${state.breathDifferences.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></details>` : ''}
+    <p class="muted small">Это краткий пересказ для памяти. Задержки и сильные выдохи осваивайте постепенно и под руководством учителя.</p>`;
+}
+function breathPhases(v) {
+  const ph = [['inhale', 'Вдох', '↓'], ['hold', 'Задержка', '◦'], ['exhale', 'Выдох', '↑']].filter(([k]) => v[k]);
+  if (!ph.length) return '';
+  return `<div class="phases">${ph.map(([k, t, i]) => `<div class="phase ph-${k}"><b><span>${i}</span>${t}</b><p>${linkify(v[k])}</p></div>`).join('')}</div>`;
+}
+function breathVersion(v, multi) {
+  const pr = v.practice && state.practices.find(x => x.id === `p:${v.practice.replace('/', ':')}`);
+  return `<section class="breath-ver" id="v-${v.book}">
+    ${multi ? `<h2>${bookTag(v.book)}</h2>` : ''}
+    ${v.posture ? `<p class="posture"><b>Поза.</b> ${linkify(v.posture)}</p>` : ''}
+    ${breathPhases(v)}
+    ${v.steps && v.steps.length ? `<div class="card b-${v.book}"><h3>Как выполнять</h3><ol class="steps">${v.steps.map(s => `<li>${linkify(s)}</li>`).join('')}</ol></div>` : ''}
+    ${v.channels ? `<div class="callout"><b>Каналы</b>${linkify(v.channels)}</div>` : ''}
+    ${v.notes ? `<div class="callout"><b>Важно</b>${linkify(v.notes)}</div>` : ''}
+    ${v.cautions ? `<div class="callout warn"><b>Осторожно</b>${linkify(v.cautions)}</div>` : ''}
+    ${v.quote ? quoteHtml(v.book, v.quote) : ''}
+    ${refLinks(v.book, v.chapters, false)}
+    ${pr ? `<ul class="list">${practiceRow(pr, true)}</ul>` : ''}
+  </section>`;
+}
+function viewBreathItem(id, book) {
+  const b = state.breath.find(x => x.id === id);
+  if (!b) return notFound();
+  const multi = b.versions.length > 1;
+  const ver = b.versions.find(v => v.book === book) || b.versions[0];
+  const group = state.breath.filter(x => x.group === b.group);
+  const pos = group.indexOf(b);
+  const prev = group[pos - 1], next = group[pos + 1];
+  const related = (b.related || []).map(r => state.breath.find(x => x.id === r)).filter(Boolean);
+  return `<a class="back" href="#/breath">‹ Всё о дыхании</a>
+    <div class="page-head${multi ? '' : ' b-' + b.versions[0].book}">
+      ${multi ? `<span class="book-tag">${b.versions.length} ${plural(b.versions.length, 'книга', 'книги', 'книг')}</span>` : bookTag(b.versions[0].book)}
+      <h1>${esc(b.name)}</h1>
+    </div>
+    <p class="purpose">${linkify(b.purpose)}</p>
+    ${b.differences && b.differences.length ? `<details class="card diff"><summary><b>Чем книги отличаются</b></summary><ul>${b.differences.map(d => `<li>${linkify(d)}</li>`).join('')}</ul></details>` : ''}
+    ${multi ? `<p class="refs-label">Как описано в книге:</p><div class="chips wrap">${b.versions.map(v => `<a class="chip b-${v.book}${v === ver ? ' on' : ''}" href="#/breath/${b.id}/${v.book}"><span class="dot"></span>${esc(BOOK_SHORT[v.book])}</a>`).join('')}</div>` : ''}
+    ${breathVersion(ver, false)}
+    ${related.length ? `<div class="mantra-chips"><span class="refs-label">См. также:</span>${related.map(r => `<a class="chip" href="#/breath/${r.id}">${esc(r.name)}</a>`).join('')}</div>` : ''}
+    <div class="pager">
+      ${prev ? `<a href="#/breath/${prev.id}"><small>‹ Предыдущее</small>${esc(prev.name)}</a>` : '<span></span>'}
+      ${next ? `<a class="next" href="#/breath/${next.id}"><small>Следующее ›</small>${esc(next.name)}</a>` : '<span></span>'}
     </div>`;
 }
 
@@ -565,11 +643,13 @@ function viewSearch(q) {
   const prRank = x => (matches(q, x.p.name) ? 1 : 0);
   pr.sort((a, b) => prRank(b) - prRank(a));
   const mantras = state.mantras.filter(m => matches(q, mantraHay(m)));
+  const breath = state.breath.filter(b => matches(q, breathHay(b)));
   const ideas = state.ideas.filter(x => matches(q, x.i.title, x.i.summary));
   const quotes = state.quotes.filter(x => matches(q, x.q.text, x.q.topic));
-  const total = mantras.length + terms.length + pr.length + ideas.length + quotes.length;
+  const total = mantras.length + breath.length + terms.length + pr.length + ideas.length + quotes.length;
   const sections = [
     ['mantras', 'Мантры', mantras.length, () => `<ul class="list">${mantras.map(m => mantraRow(m, q)).join('')}</ul>`],
+    ['breath', 'Дыхание', breath.length, () => `<ul class="list">${breath.map(b => breathRow(b, q)).join('')}</ul>`],
     ['practices', 'Практики', pr.length, () => `<ul class="list">${pr.map(x =>
       `<li><a href="${practiceHref(x)}"><span class="main">${hl(x.p.name, q)}<span class="sub">${hl(cut(x.p.purpose || '', 110), q)}</span></span>${dotsFor([x.book])}${ICON_CHEV}</a></li>`).join('')}</ul>`],
     ['terms', 'Термины', terms.length, () => `<ul class="list">${terms.map(g => {
@@ -580,7 +660,7 @@ function viewSearch(q) {
     ['quotes', 'Цитаты', quotes.length, () => quotes.map(x => quoteCard(x, q)).join('')],
   ].filter(s => s[2]);
   // a section whose item titles match the query comes first: «гуру-йога» shows practices before terms
-  const titleHit = { mantras: mantras.some(m => matches(q, m.name, m.aka)), practices: pr.some(x => matches(q, x.p.name)) };
+  const titleHit = { mantras: mantras.some(m => matches(q, m.name, m.aka)) || breath.some(b => matches(q, b.name)), practices: pr.some(x => matches(q, x.p.name)) };
   if (!titleHit.mantras && titleHit.practices && !terms.some(g => matches(q, g.name))) sections.sort((a, b) => (b[0] === 'practices') - (a[0] === 'practices'));
   return `<h1>Поиск</h1>
     <p class="lead">${total ? `По запросу «${esc(q)}» найдено ${total}` : `По запросу «${esc(q)}» ничего не найдено. Попробуйте другое написание, например «шинэ» или «шине».`}</p>
@@ -610,7 +690,7 @@ function notFound() {
 }
 
 // ---------- router ----------
-const TAB_OF = { mantras: 'tools', mantra: 'tools', term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', syllables: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
+const TAB_OF = { breath: 'tools', mantras: 'tools', mantra: 'tools', term: 'terms', practice: 'practices', book: 'books', topic: 'topics', saved: '', search: '', random: '', quotes: 'tools', syllables: 'tools', timer: 'tools', night: 'tools', journal: 'tools', cards: 'tools', charts: 'tools' };
 
 function route() {
   const hash = location.hash.replace(/^#/, '') || '/';
@@ -643,6 +723,7 @@ function route() {
     case 'practices': html = viewPractices(); break;
     case 'practice': html = viewPractice(parts[1], parts[2]); break;
     case 'mantras': html = viewMantras(); break;
+    case 'breath': html = parts[1] ? viewBreathItem(parts[1], parts[2]) : viewBreath(); break;
     case 'mantra': html = viewMantra(parts[1]); break;
     case 'ideas': html = viewIdeas(); break;
     case 'quotes': html = viewQuotes(); break;
